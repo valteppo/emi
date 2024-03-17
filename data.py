@@ -47,7 +47,8 @@ def id_translator_constructor() -> None:
     {region name}\n
     to k-spaceRegions.tsv file.
     """
-    translator = {}
+    translator_location = {}
+    translator_items = {}
     kspace = []
 
     maintain_sde() # assure
@@ -63,7 +64,7 @@ def id_translator_constructor() -> None:
                         data = file.read().decode()
                         index_str = "regionID: "
                         region_id = data[data.find(index_str):data.find("\n", data.find(index_str)+len(index_str))].split(" ")[1]
-                        translator[region_id] = tokens[4]
+                        translator_location[region_id] = tokens[4]
                 if tokens[3] == "eve" and tokens[-1] == "region.staticdata":
                     kspace.append(tokens[4])
         
@@ -73,7 +74,7 @@ def id_translator_constructor() -> None:
                     data = file.read().decode()
                     index_str = "solarSystemID: "
                     solar_system_ID = data[data.find(index_str):data.find("\n", data.find(index_str)+len(index_str))].split(" ")[1]
-                    translator[solar_system_ID] = tokens[-2]
+                    translator_location[solar_system_ID] = tokens[-2]
 
         # Exit for loop and handle item IDs:
         with openzip.open("sde/fsd/categoryIDs.yaml", "r") as raw_yaml:
@@ -98,32 +99,28 @@ def id_translator_constructor() -> None:
     for typeID in type_IDs:
         this_typeID = type_IDs[typeID]
         if this_typeID["groupID"] in approved_groups and this_typeID["published"] == True:
-            translator[typeID] = this_typeID["name"]["en"]
+            translator_items[typeID] = this_typeID["name"]["en"]
 
-    with open(os.getcwd()+"/data/translator.tsv", "w") as csvout:
-        for key in translator:
-            csvout.write(f"{key}\t{translator[key]}\n")
+    with open(os.getcwd()+"/data/translator_location.tsv", "w") as csvout:
+        for key in translator_location:
+            csvout.write(f"{key}\t{translator_location[key]}\n")
+
+    with open(os.getcwd()+"/data/translator_items.tsv", "w") as csvout:
+        for key in translator_items:
+            csvout.write(f"{key}\t{translator_items[key]}\n")
             
     with open(os.getcwd()+"/data/k-spaceRegions.tsv", "w") as csvout:
         csvout.write("\n".join(kspace))
 
-def translator_verifier():
-    with open(os.getcwd()+"/data/translator.tsv", "r") as file:
-        data = file.read().split("\n")
-    for line in data:
-        if len(re.findall('(?=(\t))', line)) > 1:
-            print(line)
-            exit()
-    print("Verified.")
-
-def translator() -> dict:
+def translator_location() -> dict:
     """
-    Returns translator dict. 
-    If given typeID, outputs item name. If given item name (accurate), outputs typeID.
+    Returns translator dict for locations. 
+    If given typeID, outputs system/region name. 
+    If given system/region name (accurate), outputs typeID.
     {string : string}
     """
     translator = {}
-    with open(os.getcwd()+"/data/translator.tsv", "r") as file:
+    with open(os.getcwd()+"/data/translator_location.tsv", "r") as file:
         data = file.read().strip().split("\n")
 
     for line in data:
@@ -132,3 +129,19 @@ def translator() -> dict:
         translator[item_name] = typeID
     return translator
 
+def translator_items() -> dict:
+    """
+    Returns translator dict for market items. 
+    If given typeID, outputs item name. 
+    If given item name (accurate), outputs typeID.
+    {string : string}
+    """
+    translator = {}
+    with open(os.getcwd()+"/data/translator_items.tsv", "r") as file:
+        data = file.read().strip().split("\n")
+
+    for line in data:
+        typeID, item_name = line.split("\t")
+        translator[typeID] = item_name
+        translator[item_name] = typeID
+    return translator
