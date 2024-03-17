@@ -1,10 +1,15 @@
+"""
+Maintains data.
+"""
+
 import os
 import urllib.request
 import zipfile
+import yaml
 
 def maintain_sde()-> None:
     """
-    Assures up-to-date SDE.
+    Assures up-to-date SDE. Does nothing if everything up to date.
     """
     dir = os.getcwd()
     try:
@@ -31,32 +36,43 @@ def maintain_sde()-> None:
         os.remove(datadir+"\\checksum")
         os.rename(datadir+"\\new_checksum", datadir+"\\checksum")
 
-def id_translation_files():
+def id_translation_files() -> None:
     """
     Saves regionID and solarsystemID csv files for decoding region/system names to IDs.
+    Additionally saves csv file for all k-space regions.
     """
 
     regions = {}
     solar_systems = {}
+    kspace = []
+
+    maintain_sde() # assure
+
     with zipfile.ZipFile(os.getcwd()+"/data/sde.zip", "r") as openzip:
-        for filename in openzip.namelist(): # Region loop
+        for filename in openzip.namelist():
             tokens = filename.split("/")
-            if len(tokens) >= 4:
+
+            # Regions
+            if len(tokens) >= 4: 
                 if tokens[2] == "universe" and tokens[-1] == "region.staticdata":
                     with openzip.open(filename) as file:
                         data = file.read().decode()
                         index_str = "regionID: "
                         region_id = data[data.find(index_str):data.find("\n", data.find(index_str)+len(index_str))].split(" ")[1]
                         regions[tokens[4]] = region_id
+                if tokens[3] == "eve" and tokens[-1] == "region.staticdata":
+                    kspace.append(tokens[4])
         
-        for filename in openzip.namelist(): # System loop
-            tokens = filename.split("/")
-            if len(tokens) == 8 and tokens[-1] == "solarsystem.staticdata":
+            # Solarsystems
+            if len(tokens) == 8 and tokens[-1] == "solarsystem.staticdata": 
                 with openzip.open(filename) as file:
                     data = file.read().decode()
                     index_str = "solarSystemID: "
                     solar_system_ID = data[data.find(index_str):data.find("\n", data.find(index_str)+len(index_str))].split(" ")[1]
                     solar_systems[tokens[-2]] = solar_system_ID
+        # Exit for loop and handle item IDs:
+        # TODO
+            
 
     with open(os.getcwd()+"/data/regionID.csv", "w") as csvout:
         for region in regions:
@@ -65,5 +81,8 @@ def id_translation_files():
     with open(os.getcwd()+"/data/solarsystemID.csv", "w") as csvout:
         for system in solar_systems:
             csvout.write(f"{system},{solar_systems[system]}\n")
+    
+    with open(os.getcwd()+"/data/k-spaceRegions.csv", "w") as csvout:
+        csvout.write("\n".join(kspace))
 
 id_translation_files()
