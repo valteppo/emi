@@ -31,13 +31,39 @@ def maintain_sde()-> None:
         os.remove(datadir+"\\checksum")
         os.rename(datadir+"\\new_checksum", datadir+"\\checksum")
 
-def save_region_id_translation():
-    regions = {}
-    with zipfile.ZipFile(os.getcwd()+"/data/sde.zip", "r") as openzip:
-        for name in openzip.namelist():
-            tokens = name.split("/")
-            if len(tokens) > 3:
-                if tokens[3] == "eve" and tokens[-1] == "region.staticdata":
-                    print(tokens[4])
+def id_translation_files():
+    """
+    Saves regionID and solarsystemID csv files for decoding region/system names to IDs.
+    """
 
-save_region_id_translation()
+    regions = {}
+    solar_systems = {}
+    with zipfile.ZipFile(os.getcwd()+"/data/sde.zip", "r") as openzip:
+        for filename in openzip.namelist(): # Region loop
+            tokens = filename.split("/")
+            if len(tokens) >= 4:
+                if tokens[2] == "universe" and tokens[-1] == "region.staticdata":
+                    with openzip.open(filename) as file:
+                        data = file.read().decode()
+                        index_str = "regionID: "
+                        region_id = data[data.find(index_str):data.find("\n", data.find(index_str)+len(index_str))].split(" ")[1]
+                        regions[tokens[4]] = region_id
+        
+        for filename in openzip.namelist(): # System loop
+            tokens = filename.split("/")
+            if len(tokens) == 8 and tokens[-1] == "solarsystem.staticdata":
+                with openzip.open(filename) as file:
+                    data = file.read().decode()
+                    index_str = "solarSystemID: "
+                    solar_system_ID = data[data.find(index_str):data.find("\n", data.find(index_str)+len(index_str))].split(" ")[1]
+                    solar_systems[tokens[-2]] = solar_system_ID
+
+    with open(os.getcwd()+"/data/regionID.csv", "w") as csvout:
+        for region in regions:
+            csvout.write(f"{region},{regions[region]}\n")
+
+    with open(os.getcwd()+"/data/solarsystemID.csv", "w") as csvout:
+        for system in solar_systems:
+            csvout.write(f"{system},{solar_systems[system]}\n")
+
+id_translation_files()
