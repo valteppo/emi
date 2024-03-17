@@ -6,6 +6,7 @@ import os
 import urllib.request
 import zipfile
 import yaml
+import re
 
 def maintain_sde()-> None:
     """
@@ -36,14 +37,17 @@ def maintain_sde()-> None:
         os.remove(datadir+"\\checksum")
         os.rename(datadir+"\\new_checksum", datadir+"\\checksum")
 
-def id_translation_files() -> None:
+def id_translator_constructor() -> None:
     """
-    Saves regionID and solarsystemID csv files for decoding region/system names to IDs.
-    Additionally saves csv file for all k-space regions.
-    """
+    Saves typeID to item name translations in form
+    {typeID}\t{item name}\n
+    to translator.tsv file.
 
-    regions = {}
-    solar_systems = {}
+    Additionally saves list of k-space regions in form
+    {region name}\n
+    to k-spaceRegions.tsv file.
+    """
+    translator = {}
     kspace = []
 
     maintain_sde() # assure
@@ -59,7 +63,7 @@ def id_translation_files() -> None:
                         data = file.read().decode()
                         index_str = "regionID: "
                         region_id = data[data.find(index_str):data.find("\n", data.find(index_str)+len(index_str))].split(" ")[1]
-                        regions[tokens[4]] = region_id
+                        translator[region_id] = tokens[4]
                 if tokens[3] == "eve" and tokens[-1] == "region.staticdata":
                     kspace.append(tokens[4])
         
@@ -69,20 +73,62 @@ def id_translation_files() -> None:
                     data = file.read().decode()
                     index_str = "solarSystemID: "
                     solar_system_ID = data[data.find(index_str):data.find("\n", data.find(index_str)+len(index_str))].split(" ")[1]
-                    solar_systems[tokens[-2]] = solar_system_ID
+                    translator[solar_system_ID] = tokens[-2]
+
         # Exit for loop and handle item IDs:
-        # TODO
+        with openzip.open("sde/fsd/categoryIDs.yaml", "r") as raw_yaml:
+            category_IDs = yaml.safe_load(raw_yaml)
+        with openzip.open("sde/fsd/groupIDs.yaml", "r") as raw_yaml:
+            group_IDs = yaml.safe_load(raw_yaml)
+        with openzip.open("sde/fsd/typeIDs.yaml", "r") as raw_yaml:
+            type_IDs = yaml.safe_load(raw_yaml)
+
+    # Approve marketable items only.
+    approved_categories = []
+    for category in category_IDs:
+        if category_IDs[category]["published"] == True and category >= 4:
+            approved_categories.append(category)
+
+    approved_groups = []
+    for group in group_IDs:
+        this_group = group_IDs[group]
+        if this_group["categoryID"] in approved_categories and this_group["published"] == True:
+            approved_groups.append(group)
+
+    for typeID in type_IDs:
+        this_typeID = type_IDs[typeID]
+        if this_typeID["groupID"] in approved_groups and this_typeID["published"] == True:
+            translator[typeID] = this_typeID["name"]["en"]
+
+    with open(os.getcwd()+"/data/translator.tsv", "w") as csvout:
+        for key in translator:
+            csvout.write(f"{key}\t{translator[key]}\n")
             
-
-    with open(os.getcwd()+"/data/regionID.csv", "w") as csvout:
-        for region in regions:
-            csvout.write(f"{region},{regions[region]}\n")
-
-    with open(os.getcwd()+"/data/solarsystemID.csv", "w") as csvout:
-        for system in solar_systems:
-            csvout.write(f"{system},{solar_systems[system]}\n")
-    
-    with open(os.getcwd()+"/data/k-spaceRegions.csv", "w") as csvout:
+    with open(os.getcwd()+"/data/k-spaceRegions.tsv", "w") as csvout:
         csvout.write("\n".join(kspace))
 
-id_translation_files()
+def translator_verifier():
+    with open(os.getcwd()+"/data/translator.tsv", "r") as file:
+        data = file.read().split("\n")
+    for line in data:
+        if len(re.findall('(?=(\t))', line)) > 1:
+            print(line)
+            exit()
+    print("Verified.")
+
+def translator() -> dict:
+    """
+    Returns translator dict. 
+    If given typeID, outputs item name. If given item name (accurate), outputs typeID.
+    {string : string}
+    """
+    translator = {}
+    with open(os.getcwd()+"/data/translator.tsv", "r") as file:
+        data = file.read().strip().split("\n")
+
+    for line in data:
+        typeID, item_name = line.split("\t")
+        translator[typeID] = item_name
+        translator[item_name] = typeID
+    return translator
+
