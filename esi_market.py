@@ -6,7 +6,7 @@ import time
 
 import data
 
-async def main():
+async def download_all_orders():
     time_start = time.time()
     translate = data.translator_location()
     with open(os.getcwd()+"/data/k-spaceRegions.tsv", "r") as file:
@@ -54,4 +54,55 @@ async def main():
             conn.close()
     print("Time elapsed: ", time.time() - time_start)
 
-asyncio.run(main())
+#asyncio.run(download_all_orders())
+
+async def download_market_history(region = "TheForge"):
+    """
+    Download history for all items in market. Can take a while.
+    """
+
+    translate_location = data.translator_location()
+    translate_item = data.translator_items()
+
+    conn = sqlite3.Connection(os.getcwd()+f"/market/orders/{region}.db")
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name ASC")
+    latest = cur.fetchone()[0]
+    cur.execute(f"SELECT DISTINCT type_id FROM {latest} WHERE duration < 300")
+    item_ids = cur.fetchall()
+    item_ids = [i[0] for i in item_ids]
+    conn.close()
+
+    region_id = translate_location[region]
+    url = f"https://esi.evetech.net/latest/markets/{region_id}/history/"
+    histories = {}
+    async with aiohttp.ClientSession() as session:
+        for item_id in item_ids:
+            async with session.get(url=url, params={"type_id":str(item_id)}) as resp:
+                try:
+                    this_history = await resp.json()
+                    histories[item_id] = this_history
+                except:
+                    continue
+    
+    conn = sqlite3.Connection(os.getcwd()+f"/market/history/{region}.db")
+    cur = conn.cursor()
+    exceptions = []
+    for item_id in histories:
+        try:
+            cur.execute(f"CREATE TABLE item_id{str(item_id)} \
+                        (average float, date text, highest float, lowest float, order_count int, volume int)")
+            
+            cur.executemany(f"INSERT INTO item_id{str(item_id)} \
+                            (average, date, highest, lowest, order_count, volume) \
+                            VALUES \
+                            (:average, :date, :highest, :lowest, :order_count, :volume)",\
+                                histories[item_id])
+            conn.commit()
+        except:
+            exceptions.append((histories[item_id], item_id))
+    conn.close()
+    print("Region: ", region, "\titem histories: ",len(histories))
+    print("exceptions: ", exceptions)
+
+#asyncio.run(download_market_history())
