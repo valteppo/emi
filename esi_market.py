@@ -7,7 +7,6 @@ import time
 import data
 
 async def download_all_orders():
-    time_start = time.time()
     translate = data.translator_location()
     with open(os.getcwd()+"/data/k-spaceRegions.tsv", "r") as file:
         regions = file.read().split("\n")
@@ -52,7 +51,6 @@ async def download_all_orders():
                                 orders)
             conn.commit()
             conn.close()
-    print("Time elapsed: ", time.time() - time_start)
 
 #asyncio.run(download_all_orders())
 
@@ -62,7 +60,6 @@ async def download_market_history(region = "TheForge"):
     """
 
     translate_location = data.translator_location()
-    translate_item = data.translator_items()
 
     conn = sqlite3.Connection(os.getcwd()+f"/market/orders/{region}.db")
     cur = conn.cursor()
@@ -87,7 +84,6 @@ async def download_market_history(region = "TheForge"):
     
     conn = sqlite3.Connection(os.getcwd()+f"/market/history/{region}.db")
     cur = conn.cursor()
-    exceptions = []
     for item_id in histories:
         try:
             cur.execute(f"CREATE TABLE item_id{str(item_id)} \
@@ -100,9 +96,55 @@ async def download_market_history(region = "TheForge"):
                                 histories[item_id])
             conn.commit()
         except:
-            exceptions.append((histories[item_id], item_id))
+            pass
     conn.close()
-    print("Region: ", region, "\titem histories: ",len(histories))
-    print("exceptions: ", exceptions)
 
 #asyncio.run(download_market_history())
+
+def construct_prices():
+    """
+    Construct regional buy&sell prices in major hubs from order data.
+    """
+    cwd = os.getcwd()
+    translator_location =   data.translator_location()
+    translator_item =       data.translator_items()
+
+    region_leaders = {}
+
+    with open(cwd+"/data/k-spaceRegions.tsv", "r") as file:
+        regions = file.read().strip().split("\n")
+    for region in regions:
+        order_conn = sqlite3.Connection(cwd+f"/market/orders/{region}.db")
+        order_cur = order_conn.cursor()
+        order_cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name ASC")
+        latest_order_table = order_cur.fetchone()[0]
+
+        order_cur.execute(f"SELECT * FROM {latest_order_table} WHERE duration < 365 and is_buy_order = 0")
+        orders = order_cur.fetchall()
+                            # (duration, is_buy_order, issued, location_id, min_volume, order_id, \
+                            # price, range, system_id, type_id, volume_remain, volume_total)\
+        system_split = {}
+        for order in orders:
+            if order[8] in system_split: #order[8] is system_id
+                system_split[order[8]].append(order)
+            else:
+                system_split[order[8]] = [order]
+        
+        # Determine the biggest hub
+        count = 0
+        leader = 0
+        for system in system_split:
+            if len(system_split[system]) > count:
+                count = len(system_split[system])
+                leader = system
+        
+        if leader > 0:
+            print(region, translator_location[str(leader)], len(system_split[leader]))
+            region_leaders[region] = leader
+        else:
+            print(region, "No data.")
+
+    print(region_leaders)
+        # Determine sell and buy prices in those systems for each item in market
+
+construct_prices()
