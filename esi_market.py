@@ -103,12 +103,9 @@ async def download_market_history(region = "TheForge"):
 
 def construct_prices():
     """
-    Construct regional buy&sell prices in major hubs from order data.
+    Construct regional buy & sell prices in major hubs from order data.
     """
     cwd = os.getcwd()
-    translator_location =   data.translator_location()
-    translator_item =       data.translator_items()
-
 
     with open(cwd+"/data/k-spaceRegions.tsv", "r") as file:
         regions = file.read().strip().split("\n")
@@ -120,8 +117,8 @@ def construct_prices():
 
         order_cur.execute(f"SELECT * FROM {latest_order_table} WHERE duration < 365")
         orders = order_cur.fetchall()
-                            # (duration, is_buy_order, issued, location_id, min_volume, order_id, \
-                            # price, range, system_id, type_id, volume_remain, volume_total)\
+        # (duration, is_buy_order, issued, location_id, min_volume, order_id, \
+        # price, range, system_id, type_id, volume_remain, volume_total)\
         system_split = {}
         for order in orders:
             if order[8] in system_split: #order[8] is system_id
@@ -148,7 +145,7 @@ def construct_prices():
                             items[order[9]]["buy"] = order[6]
                     else:
                         if items[order[9]]["sell"] < order[6]:
-                            items[order[9]] = order[6]
+                            items[order[9]]["sell"] = order[6]
                 else:
                     items[order[9]] = {"buy":0,
                                        "sell":0}
@@ -157,9 +154,9 @@ def construct_prices():
                             items[order[9]]["buy"] = order[6]
                     else:
                         if items[order[9]]["sell"] < order[6]:
-                            items[order[9]] = order[6]
+                            items[order[9]]["sell"] = order[6]
             
-            # Remove duds
+            # Remove duds (only items that are available/being bought at regional center)
             deletion_list = []
             for item in items:
                 if items[item]["buy"] == 0 and items[item]["sell"] == 0:
@@ -180,5 +177,3 @@ def construct_prices():
             summation_conn.commit()
             summation_conn.close()
             
-
-construct_prices()
