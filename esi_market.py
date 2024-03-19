@@ -109,7 +109,6 @@ def construct_prices():
     translator_location =   data.translator_location()
     translator_item =       data.translator_items()
 
-    region_leaders = {}
 
     with open(cwd+"/data/k-spaceRegions.tsv", "r") as file:
         regions = file.read().strip().split("\n")
@@ -119,7 +118,7 @@ def construct_prices():
         order_cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name ASC")
         latest_order_table = order_cur.fetchone()[0]
 
-        order_cur.execute(f"SELECT * FROM {latest_order_table} WHERE duration < 365 and is_buy_order = 0")
+        order_cur.execute(f"SELECT * FROM {latest_order_table} WHERE duration < 365")
         orders = order_cur.fetchall()
                             # (duration, is_buy_order, issued, location_id, min_volume, order_id, \
                             # price, range, system_id, type_id, volume_remain, volume_total)\
@@ -138,13 +137,48 @@ def construct_prices():
                 count = len(system_split[system])
                 leader = system
         
+        # If there is a hub, determine prices.
         if leader > 0:
-            print(region, translator_location[str(leader)], len(system_split[leader]))
-            region_leaders[region] = leader
-        else:
-            print(region, "No data.")
-
-    print(region_leaders)
-        # Determine sell and buy prices in those systems for each item in market
+            # Split orders to items.
+            items= {}
+            for order in system_split[leader]:
+                if order[9] in items:
+                    if order[1] == 1:
+                        if items[order[9]]["buy"] < order[6]:
+                            items[order[9]]["buy"] = order[6]
+                    else:
+                        if items[order[9]]["sell"] < order[6]:
+                            items[order[9]] = order[6]
+                else:
+                    items[order[9]] = {"buy":0,
+                                       "sell":0}
+                    if order[1] == 1:
+                        if items[order[9]]["buy"] < order[6]:
+                            items[order[9]]["buy"] = order[6]
+                    else:
+                        if items[order[9]]["sell"] < order[6]:
+                            items[order[9]] = order[6]
+            
+            # Remove duds
+            deletion_list = []
+            for item in items:
+                if items[item]["buy"] == 0 and items[item]["sell"] == 0:
+                    deletion_list.append(item)
+            for item in deletion_list:
+                del items[item]
+            
+            # Save regional prices
+            summation_conn = sqlite3.Connection(cwd+f"/market/prices/{region}.db")
+            summation_cur = summation_conn.cursor()
+            summation_cur.execute(f"CREATE TABLE prices_system{str(leader)} \
+                                (type_id int, buy float, sell float)")
+            for item in items:
+                summation_cur.execute(f"INSERT INTO prices_system{str(leader)} \
+                                    (type_id, buy, sell) \
+                                    VALUES \
+                                    (?, ?, ?)", (item, items[item]["buy"], items[item]["sell"]))
+            summation_conn.commit()
+            summation_conn.close()
+            
 
 construct_prices()
