@@ -89,11 +89,14 @@ def id_translator_constructor() -> None:
     for category in category_IDs:
         if category_IDs[category]["published"] == True and category >= 4:
             approved_categories.append(category)
-
+    # Group filters
+    filtered_groups = [4072] # Expired filaments, errors in market search
     approved_groups = []
     for group in group_IDs:
         this_group = group_IDs[group]
-        if this_group["categoryID"] in approved_categories and this_group["published"] == True:
+        if this_group["categoryID"] in approved_categories \
+            and this_group["published"] == True\
+            and this_group not in filtered_groups:
             approved_groups.append(group)
 
     for typeID in type_IDs:

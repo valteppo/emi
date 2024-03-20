@@ -53,53 +53,71 @@ async def download_all_orders():
             conn.close()
 
 #asyncio.run(download_all_orders())
-
-async def download_market_history(region = "TheForge"):
-    """
-    Download history for all items in market. Can take a while.
-    """
-
+            
+async def download_market_history(region):
+    # Async funcs
+    async def fetch(url, session, id_type):
+        async with session.get(url, params={"type_id":str(id_type)}, ssl=False) as response:
+            data = await response.json(content_type=None)
+            return {id_type: data}
+        
+    async def fetch_all(url, type_ids):
+        async with aiohttp.ClientSession() as session:
+            tasks = [fetch(url, session, type_id) for type_id in type_ids]
+            results = await asyncio.gather(*tasks)
+            return results
+    
+    # ID translator
     translate_location = data.translator_location()
+    translate_item = data.translator_items()
 
+    # Available items as list
     conn = sqlite3.Connection(os.getcwd()+f"/market/orders/{region}.db")
     cur = conn.cursor()
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name ASC")
     latest = cur.fetchone()[0]
-    cur.execute(f"SELECT DISTINCT type_id FROM {latest} WHERE duration < 300")
+    cur.execute(f"SELECT DISTINCT type_id FROM {latest} WHERE duration < 365")
     item_ids = cur.fetchall()
     item_ids = [i[0] for i in item_ids]
     conn.close()
 
-    region_id = translate_location[region]
-    url = f"https://esi.evetech.net/latest/markets/{region_id}/history/"
+    # Make requests
+    url = f"https://esi.evetech.net/latest/markets/{translate_location[region]}/history/"
+    results = await fetch_all(url=url, type_ids=item_ids)
+
+    # Process inbound
     histories = {}
-    async with aiohttp.ClientSession() as session:
-        for item_id in item_ids:
-            async with session.get(url=url, params={"type_id":str(item_id)}) as resp:
-                try:
-                    this_history = await resp.json()
-                    histories[item_id] = this_history
-                except:
-                    continue
+    for individual_dict in results:
+        histories.update(individual_dict) ### Issue here maybe?
     
+    # Save results
     conn = sqlite3.Connection(os.getcwd()+f"/market/history/{region}.db")
     cur = conn.cursor()
     for item_id in histories:
         try:
-            cur.execute(f"CREATE TABLE item_id{str(item_id)} \
-                        (average float, date text, highest float, lowest float, order_count int, volume int)")
-            
-            cur.executemany(f"INSERT INTO item_id{str(item_id)} \
-                            (average, date, highest, lowest, order_count, volume) \
-                            VALUES \
-                            (:average, :date, :highest, :lowest, :order_count, :volume)",\
-                                histories[item_id])
-            conn.commit()
+            if len(histories[item_id]) != 0:
+                cur.execute(f"CREATE TABLE item_id{str(item_id)} \
+                    (average float, date text, highest float, lowest float, order_count int, volume int)")
+                cur.executemany(f"INSERT INTO item_id{str(item_id)} \
+                                (average, date, highest, lowest, order_count, volume) \
+                                VALUES \
+                                (:average, :date, :highest, :lowest, :order_count, :volume)",\
+                                    histories[item_id])
         except:
-            pass
+            print(histories[item_id], item_id)
+    conn.commit()
     conn.close()
 
-#asyncio.run(download_market_history())
+def download_all_histories():
+    cwd = os.getcwd()
+    with open(cwd+"/data/k-spaceRegions.tsv", "r") as file:
+        regions = file.read().strip().split("\n")
+    
+    for region in regions:
+        asyncio.run(download_market_history(region=region))
+        print(region, "done")
+
+download_all_histories()
 
 def construct_prices():
     """
@@ -177,3 +195,12 @@ def construct_prices():
             summation_conn.commit()
             summation_conn.close()
             
+def construct_volume():
+    """
+    Construct regional buy & sell volumes.
+    Average from history data. Since history data takes so long to compile,
+    volume is averaged over the whole maximum data, normally year.
+    """
+    cwd = os.getcwd()
+    pass
+
