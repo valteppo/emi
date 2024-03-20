@@ -90,7 +90,8 @@ def id_translator_constructor() -> None:
         if category_IDs[category]["published"] == True and category >= 4:
             approved_categories.append(category)
     # Group filters
-    filtered_groups = [4072] # Expired filaments, errors in market search
+    filtered_groups = [4072,    # Expired filaments, errors in market search
+                       369]     # Ship logs
     approved_groups = []
     for group in group_IDs:
         this_group = group_IDs[group]
