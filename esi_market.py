@@ -52,7 +52,6 @@ async def download_all_orders():
             conn.commit()
             conn.close()
 
-#asyncio.run(download_all_orders())
             
 async def download_market_history(region):
     # Async funcs
@@ -116,8 +115,6 @@ def download_all_histories():
     for region in regions:
         asyncio.run(download_market_history(region=region))
         print(region, "done")
-
-download_all_histories()
 
 def construct_prices():
     """
