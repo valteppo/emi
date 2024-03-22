@@ -3,6 +3,7 @@ import asyncio
 import os
 import sqlite3
 import time
+import itertools
 
 import data
 
@@ -57,6 +58,9 @@ async def download_market_history(region):
     async def fetch(url, session, id_type):
         async with session.get(url, params={"type_id":str(id_type)}, ssl=False) as response:
             data = await response.json(content_type=None)
+            if response.status != 200:
+                print(url, id_type)
+                exit()
             return {id_type: data}
         
     async def fetch_all(url, type_ids):
@@ -65,19 +69,35 @@ async def download_market_history(region):
             results = await asyncio.gather(*tasks)
             return results
     
+    # Wipe old history
+    path=os.getcwd()+"/market/history/"
+    for file in os.listdir(path=path):
+        os.remove(path=path+file)
+
     # ID translator
     translate_location = data.translator_location()
     translate_item = data.translator_items()
 
     # Available items as list
-    conn = sqlite3.Connection(os.getcwd()+f"/market/orders/{region}.db")
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name ASC")
-    latest = cur.fetchone()[0]
-    cur.execute(f"SELECT DISTINCT type_id FROM {latest} WHERE duration < 365")
-    item_ids = cur.fetchall()
-    item_ids = [i[0] for i in item_ids]
-    conn.close()
+    # conn = sqlite3.Connection(os.getcwd()+f"/market/orders/{region}.db")
+    # cur = conn.cursor()
+    # cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name ASC")
+    # latest = cur.fetchone()[0]
+    # cur.execute(f"SELECT DISTINCT type_id FROM {latest} WHERE duration < 365")
+    # item_ids = cur.fetchall()
+    # item_ids = [i[0] for i in item_ids]
+    # conn.close()
+
+    # Fetch active items from esi
+    item_ids = await active_market_items(region=region)
+    collected_ids = []
+    for item in item_ids:
+        if type(item) != int:
+            for i in item:
+                collected_ids.append(i)
+        else:
+            collected_ids.append(item)
+    item_ids = collected_ids
 
     # Make requests
     url = f"https://esi.evetech.net/latest/markets/{translate_location[region]}/history/"
@@ -86,7 +106,7 @@ async def download_market_history(region):
     # Process inbound
     histories = {}
     for individual_dict in results:
-        histories.update(individual_dict) ### Issue here maybe?
+        histories.update(individual_dict)
     
     # Save results
     conn = sqlite3.Connection(os.getcwd()+f"/market/history/{region}.db")
@@ -102,9 +122,35 @@ async def download_market_history(region):
                                 (:average, :date, :highest, :lowest, :order_count, :volume)",\
                                     histories[item_id])
         except:
-            print(histories[item_id], item_id)
+            print(histories[item_id], "item", item_id,"region",region)
+            exit()
     conn.commit()
     conn.close()
+
+async def active_market_items(region):
+    async def fetch(session, url, page):
+        async with session.get(url, params={"page":page}) as response:
+            page_data = await response.json(content_type=None)
+            return [response.headers["x-pages"], page_data]
+
+    async def fetch_all(region):
+        translate_location = data.translator_location()
+        url = f"https://esi.evetech.net/latest/markets/{translate_location[region]}/types/"
+        results = []
+        async with aiohttp.ClientSession() as session:
+            # x-pages
+            fetched = await fetch(session=session, url=url, page=1)
+            results.append([i for i in fetched[1]])
+            if fetched[0] != 1:
+                pages_to_download = [i for i in range(2, int(fetched[0])+1)]
+                tasks = [fetch(session=session, url=url, page=page_num) for page_num in pages_to_download]
+                temp = await asyncio.gather(*tasks)
+                [results.append(i) for page_res in temp[1] for i in page_res]
+        return results
+    try:
+        return await fetch_all(region=region)
+    except:
+        return []
 
 def download_all_histories():
     cwd = os.getcwd()
@@ -190,7 +236,7 @@ def construct_prices():
                                     (?, ?, ?)", (item, items[item]["buy"], items[item]["sell"]))
             summation_conn.commit()
             summation_conn.close()
-            
+
 def construct_volume():
     """
     Construct regional buy & sell volumes.
