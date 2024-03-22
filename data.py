@@ -6,7 +6,7 @@ import os
 import urllib.request
 import zipfile
 import yaml
-import re
+import json
 
 def maintain_sde()-> None:
     """
@@ -77,28 +77,11 @@ def id_translator_constructor() -> None:
                     translator_location[solar_system_ID] = tokens[-2]
 
         # Exit for loop and handle item IDs:
-        with openzip.open("sde/fsd/categoryIDs.yaml", "r") as raw_yaml:
-            category_IDs = yaml.safe_load(raw_yaml)
-        with openzip.open("sde/fsd/groupIDs.yaml", "r") as raw_yaml:
-            group_IDs = yaml.safe_load(raw_yaml)
         with openzip.open("sde/fsd/typeIDs.yaml", "r") as raw_yaml:
             type_IDs = yaml.safe_load(raw_yaml)
 
-    # Approve marketable items only.
-    approved_categories = []
-    for category in category_IDs:
-        if category_IDs[category]["published"] == True and category >= 4:
-            approved_categories.append(category)
     # Group filters
-    filtered_groups = [4072,    # Expired filaments, errors in market search
-                       369]     # Ship logs
-    approved_groups = []
-    for group in group_IDs:
-        this_group = group_IDs[group]
-        if this_group["categoryID"] in approved_categories \
-            and this_group["published"] == True\
-            and this_group not in filtered_groups:
-            approved_groups.append(group)
+    approved_groups = market_groups()
 
     for typeID in type_IDs:
         this_typeID = type_IDs[typeID]
@@ -149,3 +132,11 @@ def translator_items() -> dict:
         translator[typeID] = item_name
         translator[item_name] = typeID
     return translator
+
+def market_groups():
+    """
+    Retrieves marketgroups from esi.
+    """
+    req = urllib.request.Request(url="https://esi.evetech.net/latest/markets/groups/?datasource=tranquility", method="GET")
+    res = json.load(urllib.request.urlopen(req))
+    return res

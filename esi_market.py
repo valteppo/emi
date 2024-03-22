@@ -52,7 +52,6 @@ async def download_all_orders():
             conn.commit()
             conn.close()
 
-            
 async def download_market_history(region):
     # Async funcs
     async def fetch(url, session, id_type):
