@@ -182,7 +182,8 @@ def construct_regional_npc_grinder_coverage(spots=1) -> dict:
     Best meaning covers most unique systems with most npc kills, without touching lowsec systems.
     If multiple locations are requested, expand coverage as needed.
 
-    !! Has off by one issues sometimes, so 1 lowsec can be on range.
+    !! Has off by one issues sometimes, so 1 lowsec can be on range because some systems can be
+    be entered by 2 different routes, this confuses the algo.
     Buy order range is 0, 1, 2, 3, 4, 5, 10, 20, 30, 40, 100(=whole region).
     Saves {region:[[system, range] ... ]}
     """
@@ -359,6 +360,5 @@ def construct_regional_npc_grinder_coverage(spots=1) -> dict:
             file.write(s)
                 
 
-construct_regional_npc_grinder_coverage(3)
 
 

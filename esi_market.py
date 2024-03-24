@@ -237,6 +237,8 @@ def construct_prices():
             summation_conn.commit()
             summation_conn.close()
 
+
+
 def construct_volume():
     """
     Construct regional buy & sell volumes.
