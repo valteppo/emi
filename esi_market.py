@@ -4,6 +4,8 @@ import os
 import sqlite3
 import time
 import itertools
+import requests
+import concurrent.futures
 
 import data
 
@@ -53,7 +55,66 @@ async def download_all_orders():
             conn.commit()
             conn.close()
 
+def histories():
+    location_translator = data.translator_location()
+    with open(os.getcwd()+"/data/k-spaceRegions.tsv", "r") as file:
+        regions = file.read().split("\n")
+    cwd = os.getcwd()
 
+    items_in_region = {}
+    for region in regions:
+        conn = sqlite3.connect(cwd+f"/market/orders/{region}.db")
+        cur = conn.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name ASC")
+        table_name = cur.fetchone()[0]
+        cur.execute(f"SELECT DISTINCT type_id FROM {table_name}")
+        items = cur.fetchall()
+        items = [i[0] for i in items]
+        items_in_region[region] = items
+        conn.close()
+    
+    def single_request(region_id, type_id):
+        data = requests.get(f"https://esi.evetech.net/latest/markets/{str(region_id)}/history/?datasource=tranquility&type_id={str(type_id)}").json()
+        return {type_id:data}
+    
+    for region in regions:
+        region_data = {}
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_stack = {executor.submit(single_request, location_translator[region], type_id): type_id for type_id in items_in_region[region]}
+            for future in future_stack:
+                try:
+                    item_data = future.result()
+                except Exception as exc:
+                    print(region, exc)
+                    exit()
+                else:
+                    region_data.update(item_data)
+        print(region, len(region_data))
+
+        conn = sqlite3.connect(os.getcwd()+f"/market/history/{region}.db")
+        cur = conn.cursor()
+        for type_id in region_data:
+                # "average": 4.19,
+                # "date": "2023-02-03",
+                # "highest": 4.2,
+                # "lowest": 4.17,
+                # "order_count": 2086,
+                # "volume": 4261307007
+            cur.execute(f"CREATE TABLE IF NOT EXISTS type_id{str(type_id)} \
+                        (average float, date text, highest float, lowest float, order_count int, volume int)")
+            cur.execute(f"DELETE FROM type_id{str(type_id)}")
+            cur.executemany(f"INSERT INTO type_id{str(type_id)} \
+                            (average, date, highest, lowest, order_count, volume) \
+                            VALUES \
+                            (:average, :date, :highest, :lowest, :order_count, :volume)", region_data[type_id])
+        conn.commit()
+        conn.close()
+
+
+        
+
+
+histories()
 
 def construct_prices():
     """
