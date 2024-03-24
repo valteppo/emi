@@ -12,4 +12,4 @@ import eve_map
 # eve_map.construct_regional_npc_grinder_coverage(3)
 # asyncio.run(esi_market.download_all_orders())
 # esi_market.construct_prices()
-esi_market.download_all_histories()
+asyncio.run(esi_market.download_market_history("TheForge"))
