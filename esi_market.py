@@ -74,10 +74,13 @@ def histories():
         conn.close()
     
     def single_request(region_id, type_id):
-        data = requests.get(f"https://esi.evetech.net/latest/markets/{str(region_id)}/history/?datasource=tranquility&type_id={str(type_id)}").json()
+        headers = {"user-agent":"IG char: Great Artista"}
+        data = requests.get(f"https://esi.evetech.net/latest/markets/{str(region_id)}/history/?datasource=tranquility&type_id={str(type_id)}", headers=headers).json()
         return {type_id:data}
     
     for region in regions:
+        if len(items_in_region[region]) == 0:
+            continue
         region_data = {}
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_stack = {executor.submit(single_request, location_translator[region], type_id): type_id for type_id in items_in_region[region]}
@@ -94,12 +97,8 @@ def histories():
         conn = sqlite3.connect(os.getcwd()+f"/market/history/{region}.db")
         cur = conn.cursor()
         for type_id in region_data:
-                # "average": 4.19,
-                # "date": "2023-02-03",
-                # "highest": 4.2,
-                # "lowest": 4.17,
-                # "order_count": 2086,
-                # "volume": 4261307007
+            if len(region_data[type_id]) == 0:
+                continue
             cur.execute(f"CREATE TABLE IF NOT EXISTS type_id{str(type_id)} \
                         (average float, date text, highest float, lowest float, order_count int, volume int)")
             cur.execute(f"DELETE FROM type_id{str(type_id)}")
@@ -109,10 +108,6 @@ def histories():
                             (:average, :date, :highest, :lowest, :order_count, :volume)", region_data[type_id])
         conn.commit()
         conn.close()
-
-
-        
-
 
 histories()
 
