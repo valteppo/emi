@@ -79,35 +79,42 @@ def histories():
         return {type_id:data}
     
     for region in regions:
-        if len(items_in_region[region]) == 0:
-            continue
-        region_data = {}
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_stack = {executor.submit(single_request, location_translator[region], type_id): type_id for type_id in items_in_region[region]}
-            for future in future_stack:
-                try:
-                    item_data = future.result()
-                except Exception as exc:
-                    print(region, exc)
-                    exit()
-                else:
-                    region_data.update(item_data)
-        print(region, len(region_data))
-
-        conn = sqlite3.connect(os.getcwd()+f"/market/history/{region}.db")
-        cur = conn.cursor()
-        for type_id in region_data:
-            if len(region_data[type_id]) == 0:
+        try:
+            if len(items_in_region[region]) == 0:
                 continue
-            cur.execute(f"CREATE TABLE IF NOT EXISTS type_id{str(type_id)} \
-                        (average float, date text, highest float, lowest float, order_count int, volume int)")
-            cur.execute(f"DELETE FROM type_id{str(type_id)}")
-            cur.executemany(f"INSERT INTO type_id{str(type_id)} \
-                            (average, date, highest, lowest, order_count, volume) \
-                            VALUES \
-                            (:average, :date, :highest, :lowest, :order_count, :volume)", region_data[type_id])
-        conn.commit()
-        conn.close()
+            region_data = {}
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future_stack = {executor.submit(single_request, location_translator[region], type_id): type_id for type_id in items_in_region[region]}
+                for future in future_stack:
+                    try:
+                        item_data = future.result()
+                    except Exception as exc:
+                        print(region, exc)
+                        exit()
+                    else:
+                        region_data.update(item_data)
+            print(region, len(region_data))
+
+            conn = sqlite3.connect(os.getcwd()+f"/market/history/{region}.db")
+            cur = conn.cursor()
+            for type_id in region_data:
+                try:
+                    if len(region_data[type_id]) == 0:
+                        continue
+                    cur.execute(f"CREATE TABLE IF NOT EXISTS type_id{str(type_id)} \
+                                (average float, date text, highest float, lowest float, order_count int, volume int)")
+                    cur.execute(f"DELETE FROM type_id{str(type_id)}")
+                    cur.executemany(f"INSERT INTO type_id{str(type_id)} \
+                                    (average, date, highest, lowest, order_count, volume) \
+                                    VALUES \
+                                    (:average, :date, :highest, :lowest, :order_count, :volume)", region_data[type_id])
+                except:
+                    print(region, "exception:", type_id)
+                conn.commit()
+            conn.close()
+        except Exception as exc:
+            print(region, exc)
+            pass
 
 histories()
 
