@@ -119,6 +119,10 @@ def construct_prices():
                 del items[item]
             
             # Save regional prices
+            try:
+                os.remove(cwd+f"/market/prices/{region}.db")
+            except:
+                pass
             summation_conn = sqlite3.Connection(cwd+f"/market/prices/{region}.db")
             summation_cur = summation_conn.cursor()
             summation_cur.execute(f"CREATE TABLE prices_system{str(leader)} \
@@ -131,7 +135,54 @@ def construct_prices():
             summation_conn.commit()
             summation_conn.close()
 
+def construct_region_range_buy_orders():
+    """
+    Saves the region-wide buy orders in a region, to gauge where remote buy's can be effective.
+    """
+    cwd = os.getcwd()
 
+    with open(cwd+"/data/k-spaceRegions.tsv", "r") as file:
+        regions = file.read().strip().split("\n")
+
+    for region in regions:
+        order_conn = sqlite3.Connection(cwd+f"/market/orders/{region}.db")
+        order_cur = order_conn.cursor()
+        order_cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name ASC")
+        latest_order_table = order_cur.fetchone()[0]
+
+        order_cur.execute(f"SELECT * FROM {latest_order_table} WHERE duration < 365 AND is_buy_order = 1 AND range = 'region' OR range = '40' AND min_volume = 1")
+        orders = order_cur.fetchall()
+        if len(orders) == 0:
+            continue
+        items = {}
+        for order in orders:
+            if order[9] not in items:
+                items[order[9]] = order
+            else:
+                current_leader = items[order[9]]
+                if order[6] > current_leader[6]:
+                    items[order[9]] = order
+        
+
+        # (duration, is_buy_order, issued, location_id, min_volume, order_id, \
+        # price, range, system_id, type_id, volume_remain, volume_total)\
+            
+        # Save regional prices
+
+        summation_conn = sqlite3.Connection(cwd+f"/market/prices/{region}.db")
+        summation_cur = summation_conn.cursor()
+        summation_cur.execute(f"CREATE TABLE IF NOT EXISTS regional_buy \
+                            (type_id int, buy float, volume int)")
+        summation_cur.execute("DELETE FROM regional_buy")
+        for item in items:
+            summation_cur.execute(f"INSERT INTO regional_buy \
+                                (type_id, buy, volume) \
+                                VALUES \
+                                (?, ?, ?)", (items[item][9], items[item][6], items[item][10]))
+        summation_conn.commit()
+        summation_conn.close()
+
+construct_region_range_buy_orders()
 
 def construct_volume():
     """
