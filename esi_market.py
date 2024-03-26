@@ -1,3 +1,7 @@
+"""
+Market data retrieval
+"""
+
 import aiohttp
 import asyncio
 import os
@@ -183,13 +187,4 @@ def construct_region_range_buy_orders():
         summation_conn.close()
 
 construct_region_range_buy_orders()
-
-def construct_volume():
-    """
-    Construct regional buy & sell volumes.
-    Average from history data. Since history data takes so long to compile,
-    volume is averaged over the whole maximum data, normally year.
-    """
-    cwd = os.getcwd()
-    pass
 

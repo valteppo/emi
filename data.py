@@ -81,7 +81,7 @@ def id_translator_constructor() -> None:
             type_IDs = yaml.safe_load(raw_yaml)
 
     # Group filters
-    approved_groups = market_groups()
+    approved_groups = my_groups()
 
     for typeID in type_IDs:
         this_typeID = type_IDs[typeID]
@@ -140,3 +140,15 @@ def market_groups():
     req = urllib.request.Request(url="https://esi.evetech.net/latest/markets/groups/?datasource=tranquility", method="GET")
     res = json.load(urllib.request.urlopen(req))
     return res
+
+def my_groups():
+    with open(os.getcwd()+"/data/groupIDs.yaml", "r", encoding="utf8") as file:
+        data = yaml.safe_load(file.read())
+    
+    my_catIDs = [4, 6, 7, 8, 17, 18, 20, 22, 25, 32, 34, 35, 41, 42, 43, 46, 65, 66, 87]
+    my_groups = []
+    for line in data:
+        if data[line]["categoryID"] in my_catIDs and data[line]["published"]:
+            my_groups.append(line)
+    return my_groups
+  
