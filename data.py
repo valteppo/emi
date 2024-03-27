@@ -81,7 +81,7 @@ def id_translator_constructor() -> None:
             type_IDs = yaml.safe_load(raw_yaml)
 
     # Group filters
-    approved_groups = my_groups()
+    approved_groups = market_groups()
 
     for typeID in type_IDs:
         this_typeID = type_IDs[typeID]
