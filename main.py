@@ -26,4 +26,4 @@ System data
 }
 """
 import data
-data.id_translator_constructor()
+data.link_typeID_group()

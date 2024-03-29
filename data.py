@@ -146,7 +146,7 @@ def market_groups():
     res = json.load(urllib.request.urlopen(req))
     return res
 
-def my_groups():
+def vetted_groups():
     with open(os.getcwd()+"/data/groupIDs.yaml", "r", encoding="utf8") as file:
         data = yaml.safe_load(file.read())
     
@@ -156,4 +156,21 @@ def my_groups():
         if data[line]["categoryID"] in my_catIDs and data[line]["published"]:
             my_groups.append(line)
     return my_groups
-  
+
+def link_typeID_group():
+    """
+    Links typeID to groupID. Saves as tsv.
+    """
+    linked = {}
+    with zipfile.ZipFile(os.getcwd()+"/data/sde.zip", "r") as openzip:
+        with openzip.open("sde/fsd/typeIDs.yaml", "r") as raw_yaml:
+                type_IDs = yaml.safe_load(raw_yaml)
+
+    for typeID in type_IDs:
+        this_typeID = type_IDs[typeID]
+        if this_typeID["published"] == True:
+            linked[typeID] = type_IDs[typeID]["groupID"]
+    
+    with open(os.getcwd()+"/data/typeID_groupID.tsv", "w") as file:
+        for typeID in linked:
+            file.write(f"{str(typeID)}\t{str(linked[typeID])}\n")
