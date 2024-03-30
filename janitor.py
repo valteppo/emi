@@ -1,14 +1,20 @@
 """
 Maintain data and repo.
 """
+import os
 
-import data
-import esi_market
-import asyncio
-import eve_map
-
-data.id_translator_constructor()
-eve_map.download_kills()
-eve_map.construct_regional_npc_grinder_coverage(3)
-asyncio.run(esi_market.download_all_orders())
-esi_market.construct_prices()
+def check_folders_exist():
+    def make (folder_name):
+        os.mkdir(folder_name)
+    
+    directories = {
+        "market":["history", "orders", "prices", "test"],
+        "data":None
+    }
+    for directory in directories:
+        if not os.path.isdir(directory):
+            make(directory)
+        if directories[directory] != None:
+            for subdir in directories[directory]:
+                if not os.path.isdir(directory+"/"+subdir):
+                    make(directory+"/"+subdir)

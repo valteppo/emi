@@ -14,19 +14,18 @@ import concurrent.futures
 import data
 
 async def download_all_orders():
-    translate = data.translator_location()
     with open(os.getcwd()+"/data/k-spaceRegions.tsv", "r") as file:
-        regions = file.read().split("\n")
+        region_data = file.read().strip().split("\n")
+        regions = [i.split("\t")[0] for i in region_data]
 
     async with aiohttp.ClientSession() as session:
         for region in regions:
             orders = []
-
+            print(f"/market/orders/{region}.db")
             conn = sqlite3.connect(os.getcwd()+f"/market/orders/{region}.db")
             cur = conn.cursor()
 
-            id = translate[region]
-            url = "https://esi.evetech.net/latest/markets/"+id+"/orders/"
+            url = "https://esi.evetech.net/latest/markets/"+str(region)+"/orders/"
             page = 1
             xpage = 0
             params = {"page":page}
@@ -186,5 +185,51 @@ def construct_region_range_buy_orders():
         summation_conn.commit()
         summation_conn.close()
 
-construct_region_range_buy_orders()
+def location_orders(location, type_id):
+    """
+    Select prices that correspond to item in location (system/region).
+    """
+    location_translate = data.translator_location()
+    item_translate = data.translator_items()
+    cwd = os.getcwd()
+
+    with open(cwd+"/data/k-spaceRegions.tsv", "r") as tsvfile:
+        tsv_data = tsvfile.read().strip().split("\n")
+        region_ids = [int(i.split("\t")[0]) for i in tsv_data]
+
+    location_is_region = False
+    if int(location) in region_ids:
+        location_is_region = True
+
+    def handle_region_requests(region_id, type_id):
+        """
+        Highest buy order will be the top of the list.
+        Lowest sell order will be the last on the list.
+        """
+        conn = sqlite3.connect(os.getcwd()+f"/market/orders/{str(region_id)}.db")
+        cur = conn.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name ASC")
+        latest_order_table = cur.fetchone()[0]
+        cur.execute(f"SELECT * FROM {latest_order_table} \
+                    WHERE \
+                    duration < 365 AND min_volume = 1 AND type_id = {str(type_id)}")
+        orders = cur.fetchall()
+        conn.close()
+
+        return orders
+    
+    def handle_system_requests(system_id, type_id):
+        pass
+
+    # Branch
+    if location_is_region:
+        return handle_region_requests(region_id=location, type_id=type_id)
+    else:
+        return handle_system_requests(system_id=location, type_id=type_id)
+
+trit = location_orders(location=10000002, type_id=34)
+print(trit[0])
+
+
+
 

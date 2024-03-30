@@ -22,8 +22,10 @@ def system_connections_builder():
     Takes time. Approx system count = 5200.
     """
     cwd = os.getcwd()
+    location_translator = translator_location()
 
     jove = ["J7HZ-F", "A821-A", "UUA-F4"]
+    regionName_to_proper = {}
     system_gates = {}
     gates_systems = {}
     gate_gate = {}
@@ -37,9 +39,11 @@ def system_connections_builder():
             tokens = filename.split("/")
             if len(tokens) > 6:
                 if tokens[-5] == "eve" and tokens[-1] == "solarsystem.staticdata" and tokens[-4] not in jove:
+                    # Solarsystem data
                     with openzip.open(filename) as yaml_step:
                         system_data = yaml.safe_load(yaml_step)
-                        system_name = tokens[-2]
+                        system_id = system_data["solarSystemID"]
+                        system_name = location_translator[system_id]
                         region[system_name] = tokens[-4]
                         system_gates[system_name] = []
                         security[system_name] = system_data["security"]
@@ -52,6 +56,15 @@ def system_connections_builder():
                         temp_counter += 1
                         if temp_counter % 10 == 0:
                             print("Systems handled",temp_counter,"/ 5210", end="\r")
+        # Translate region string to better format
+        for filename in openzip.namelist():
+            tokens = filename.split()
+            if len(tokens) > 6:
+                if tokens[-5] == "eve" and tokens[-1] == "region.staticdata":
+                    with openzip.open(filename) as yaml_step:
+                        region_data = yaml.safe_load(yaml_step)
+                        regionName_to_proper[tokens[-4]] = region_data["regionID"]
+                        
     
     print("Translating and saving...", end="")
     # Translate
@@ -65,7 +78,7 @@ def system_connections_builder():
     # Save
     with open(cwd+"/data/system_connections.tsv", "w") as file:
         for system in named_connections:
-            file.write(f"{system}\t{region[system]}\t{security[system]}\t{named_connections[system]}\n")
+            file.write(f"{system}\t{translator_location[regionName_to_proper[region[system]]]}\t{security[system]}\t{named_connections[system]}\n")
     print("done.")
 
 def route(start, target, hisec_only = True, blocklist = []):

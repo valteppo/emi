@@ -1,4 +1,27 @@
 #TODO:
+
+""" FIRST THINGS:
+DONE, to test:
+    - eve_map.system_connection_builder()
+
+"""
+
+
+""" Control loop
+Check folders exist.
+Check sde exists.
+Make tsvs.
+Download orders.
+Determine best buy/sell locations in periphery regions.
+Get arbritrage candidates from price differences.
+Get market history for candidate items.
+Determine average volume.
+Determine hauling costs.
+Determine best items.
+Form item list to buy.
+Form eve market compliant string.
+"""
+
 """
 Operate with IDs, strings only for final translation.
 
@@ -26,4 +49,5 @@ System data
 }
 """
 import data
+data.id_translator_constructor()
 data.link_typeID_group()
