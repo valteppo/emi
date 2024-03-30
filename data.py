@@ -54,50 +54,55 @@ def id_translator_constructor() -> None:
     maintain_sde() # assure
 
     with zipfile.ZipFile(os.getcwd()+"/data/sde.zip", "r") as openzip:
+        # Unique region and system name dict formation
+        with openzip.open("sde/bsd/invUniqueNames.yaml") as unique_names:
+            location_name_data = yaml.safe_load(unique_names)
+        location_names = {}
+        for dataline in location_name_data:
+            location_names[dataline["itemID"]] = dataline["itemName"]
+
+        # Main operation
         for filename in openzip.namelist():
             tokens = filename.split("/")
-
             # Regions
             if len(tokens) >= 4: 
                 if tokens[2] == "universe" and tokens[-1] == "region.staticdata":
                     with openzip.open(filename) as file:
                         data = file.read().decode()
                         index_str = "regionID: "
-                        region_id = data[data.find(index_str):data.find("\n", data.find(index_str)+len(index_str))].split(" ")[1]
-                        translator_location[region_id] = tokens[4]
+                        region_id = int(data[data.find(index_str):data.find("\n", data.find(index_str)+len(index_str))].split(" ")[1])
+                        translator_location[region_id] = location_names[region_id]
                 if tokens[3] == "eve" and tokens[-1] == "region.staticdata":
-                    kspace.append(tokens[4])
+                    kspace.append(region_id)
         
             # Solarsystems
             if len(tokens) == 8 and tokens[-1] == "solarsystem.staticdata": 
                 with openzip.open(filename) as file:
                     data = file.read().decode()
                     index_str = "solarSystemID: "
-                    solar_system_ID = data[data.find(index_str):data.find("\n", data.find(index_str)+len(index_str))].split(" ")[1]
-                    translator_location[solar_system_ID] = tokens[-2]
+                    solar_system_ID = int(data[data.find(index_str):data.find("\n", data.find(index_str)+len(index_str))].split(" ")[1])
+                    translator_location[solar_system_ID] = location_names[solar_system_ID]
 
         # Exit for loop and handle item IDs:
         with openzip.open("sde/fsd/typeIDs.yaml", "r") as raw_yaml:
             type_IDs = yaml.safe_load(raw_yaml)
 
-    # Group filters
-    approved_groups = market_groups()
-
     for typeID in type_IDs:
         this_typeID = type_IDs[typeID]
-        if this_typeID["groupID"] in approved_groups and this_typeID["published"] == True:
+        if this_typeID["published"] == True:
             translator_items[typeID] = this_typeID["name"]["en"]
 
     with open(os.getcwd()+"/data/translator_location.tsv", "w") as csvout:
         for key in translator_location:
-            csvout.write(f"{key}\t{translator_location[key]}\n")
+            csvout.write(f"{str(key)}\t{translator_location[key]}\n")
 
     with open(os.getcwd()+"/data/translator_items.tsv", "w") as csvout:
         for key in translator_items:
-            csvout.write(f"{key}\t{translator_items[key]}\n")
+            csvout.write(f"{str(key)}\t{translator_items[key]}\n")
             
     with open(os.getcwd()+"/data/k-spaceRegions.tsv", "w") as csvout:
-        csvout.write("\n".join(kspace))
+        for region in kspace:
+            csvout.write(f"{str(region)}\t{location_names[region]}\n")
 
 def translator_location() -> dict:
     """
@@ -141,7 +146,7 @@ def market_groups():
     res = json.load(urllib.request.urlopen(req))
     return res
 
-def my_groups():
+def vetted_groups():
     with open(os.getcwd()+"/data/groupIDs.yaml", "r", encoding="utf8") as file:
         data = yaml.safe_load(file.read())
     
@@ -151,4 +156,21 @@ def my_groups():
         if data[line]["categoryID"] in my_catIDs and data[line]["published"]:
             my_groups.append(line)
     return my_groups
-  
+
+def link_typeID_group():
+    """
+    Links typeID to groupID. Saves as tsv.
+    """
+    linked = {}
+    with zipfile.ZipFile(os.getcwd()+"/data/sde.zip", "r") as openzip:
+        with openzip.open("sde/fsd/typeIDs.yaml", "r") as raw_yaml:
+                type_IDs = yaml.safe_load(raw_yaml)
+
+    for typeID in type_IDs:
+        this_typeID = type_IDs[typeID]
+        if this_typeID["published"] == True:
+            linked[typeID] = type_IDs[typeID]["groupID"]
+    
+    with open(os.getcwd()+"/data/typeID_groupID.tsv", "w") as file:
+        for typeID in linked:
+            file.write(f"{str(typeID)}\t{str(linked[typeID])}\n")
