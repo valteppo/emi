@@ -1,5 +1,3 @@
-#TODO:
-
 """ FIRST THINGS:
 DONE, to test:
     - eve_map.system_connection_builder()
@@ -10,6 +8,14 @@ DONE, to test:
 """ Control loop
 Check folders exist.
 Check sde exists.
+Build system info database. TODO
+    INFO:
+    - Region ID
+    - Constellation ID
+    - System ID
+    - Security Status
+    - Connections (system ID)
+    - Station IDs
 Make tsvs.
 Download orders.
 Determine best buy/sell locations in periphery regions.
@@ -48,6 +54,6 @@ System data
                 }
 }
 """
-import data
-data.id_translator_constructor()
-data.link_typeID_group()
+import eve_map
+
+eve_map.system_connections_builder()

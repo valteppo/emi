@@ -42,7 +42,7 @@ def system_connections_builder():
                     # Solarsystem data
                     with openzip.open(filename) as yaml_step:
                         system_data = yaml.safe_load(yaml_step)
-                        system_id = system_data["solarSystemID"]
+                        system_id = int(system_data["solarSystemID"])
                         system_name = location_translator[system_id]
                         region[system_name] = tokens[-4]
                         system_gates[system_name] = []
@@ -372,6 +372,4 @@ def construct_regional_npc_grinder_coverage(spots=1) -> dict:
             s = s[:-1]+"\n"
             file.write(s)
                 
-
-
 

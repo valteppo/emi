@@ -4,6 +4,7 @@ Maintains data.
 
 import os
 import urllib.request
+import sqlite3
 import zipfile
 import yaml
 import json
@@ -174,3 +175,37 @@ def link_typeID_group():
     with open(os.getcwd()+"/data/typeID_groupID.tsv", "w") as file:
         for typeID in linked:
             file.write(f"{str(typeID)}\t{str(linked[typeID])}\n")
+
+def build_location_info_db():
+    """
+    Makes database for info searching.
+        INFO:
+        - System ID
+        - Constellation ID
+        - Region ID
+        - Security Status
+        - Connections (system ID)
+        - Station IDs
+
+    Split to tables locations, connections, stations
+    """
+    cwd = os.getcwd()
+    conn = sqlite3.connect(cwd+"/data/location.db")
+    cur = conn.cursor()
+    # Location table
+    cmd =   "CREATE TABLE IF NOT EXISTS \
+            locations (system_id int, constellation_id int, region_id int, security float)"
+    cur.execute(cmd)
+    # Connections
+    cmd =   "CREATE TABLE IF NOT EXISTS \
+            connections (system_id int, target_system_id int)"
+    cur.execute(cmd)
+    # Stations
+    cmd =   "CREATE TABLE IF NOT EXISTS \
+            stations (system_id int, station_id int)"
+    cur.execute(cmd)
+
+    with zipfile.ZipFile(cwd+"/data/sde.zip") as openzip:
+        pass #TODO JATKA
+
+build_location_info_db()
