@@ -40,13 +40,19 @@ def maintain_sde()-> None:
 
 def id_translator_constructor() -> None:
     """
-    Saves typeID to item name translations in form
-    {typeID}\t{item name}\n
-    to translator.tsv file.
+    Saves translations:
 
-    Additionally saves list of k-space regions in form
-    {region name}\n
-    to k-spaceRegions.tsv file.
+    type_id, type_name
+        /data/item.db
+            table: item_translation
+
+    location_id, location_name
+        /data/location.db
+            table: location_translation
+
+    Saves k-space regions to:
+            /data/location.db
+                table: k_space_regions
     """
     translator_location = {}
     translator_items = {}
@@ -93,17 +99,37 @@ def id_translator_constructor() -> None:
         if this_typeID["published"] == True:
             translator_items[typeID] = this_typeID["name"]["en"]
 
-    with open(os.getcwd()+"/data/translator_location.tsv", "w") as csvout:
-        for key in translator_location:
-            csvout.write(f"{str(key)}\t{translator_location[key]}\n")
+    # Save items:
+    cwd = os.getcwd()
+    conn = sqlite3.connect(cwd+"/data/item.db")
+    cur = conn.cursor()
+    cur.execute("DROP TABLE IF EXISTS item_translation")
+    cur.execute("CREATE TABLE item_translation (type_id int, type_name text)")
+    for key in translator_items:
+        cur.execute("INSERT INTO item_translation (type_id, type_name) VALUES \
+                    (?, ?)", (key, translator_items[key]))
+    conn.commit()
+    conn.close()
 
-    with open(os.getcwd()+"/data/translator_items.tsv", "w") as csvout:
-        for key in translator_items:
-            csvout.write(f"{str(key)}\t{translator_items[key]}\n")
-            
-    with open(os.getcwd()+"/data/k-spaceRegions.tsv", "w") as csvout:
-        for region in kspace:
-            csvout.write(f"{str(region)}\t{location_names[region]}\n")
+    # Save locations:
+    conn = sqlite3.connect(cwd+"/data/location.db")
+    cur = conn.cursor()
+    cur.execute("DROP TABLE IF EXISTS location_translation")
+    cur.execute("CREATE TABLE location_translation (location_id int, location_name text)")
+    for key in translator_location:
+        cur.execute("INSERT INTO location_translation (location_id, location_name) VALUES \
+                    (?, ?)", (key, translator_location[key]))
+    conn.commit()
+
+    # Save k-space region list:
+    cur.execute("DROP TABLE IF EXISTS k_space_regions")
+    cur.execute("CREATE TABLE k_space_regions (region_id int)")
+    for region in kspace:
+        cur.execute("INSERT INTO k_space_regions (region_id) VALUES \
+                    (?)", (region, ))
+    conn.commit()
+    conn.close()
+
 
 def translator_location() -> dict:
     """
@@ -113,11 +139,14 @@ def translator_location() -> dict:
     {string : string}
     """
     translator = {}
-    with open(os.getcwd()+"/data/translator_location.tsv", "r") as file:
-        data = file.read().strip().split("\n")
+    conn = sqlite3.connect(os.getcwd()+"/data/location.db")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM location_translation")
+    data = cur.fetchall()
+    conn.close()
 
     for line in data:
-        typeID, item_name = line.split("\t")
+        typeID, item_name = line
         translator[typeID] = item_name
         translator[item_name] = typeID
     return translator
@@ -130,40 +159,50 @@ def translator_items() -> dict:
     {string : string}
     """
     translator = {}
-    with open(os.getcwd()+"/data/translator_items.tsv", "r") as file:
-        data = file.read().strip().split("\n")
+    conn = sqlite3.connect(os.getcwd()+"/data/item.db")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM item_translation")
+    data = cur.fetchall()
+    conn.close()
 
     for line in data:
-        typeID, item_name = line.split("\t")
+        typeID, item_name = line
         translator[typeID] = item_name
         translator[item_name] = typeID
     return translator
 
-def market_groups():
+def vetted_groups_construction():
     """
-    Retrieves marketgroups from esi.
+    Save market groups that make sense.
     """
-    req = urllib.request.Request(url="https://esi.evetech.net/latest/markets/groups/?datasource=tranquility", method="GET")
-    res = json.load(urllib.request.urlopen(req))
-    return res
-
-def vetted_groups():
-    """
-    Market groups that make sense.
-    """
-    with open(os.getcwd()+"/data/groupIDs.yaml", "r", encoding="utf8") as file:
-        data = yaml.safe_load(file.read())
+    with zipfile.ZipFile(os.getcwd()+"/data/sde.zip") as openzip:
+        with openzip.open("sde/fsd/groupIDs.yaml") as file:
+            data = yaml.safe_load(file.read())
     
     my_catIDs = [4, 6, 7, 8, 17, 18, 20, 22, 25, 32, 34, 35, 41, 42, 43, 46, 65, 66, 87]
     my_groups = []
     for line in data:
         if data[line]["categoryID"] in my_catIDs and data[line]["published"]:
             my_groups.append(line)
-    return my_groups
+    
+    conn = sqlite3.connect(os.getcwd()+"/data/item.db")
+    cur = conn.cursor()
+    cur.execute("DROP TABLE IF EXISTS vetted_groups")
+    cur.execute("CREATE TABLE vetted_groups (group_id int)")
+    for group in my_groups:
+        cur.execute("INSERT INTO vetted_groups (group_id) VALUES \
+                    (?)", (group, ))
+    conn.commit()
+    conn.close()
+
 
 def link_typeID_group():
     """
-    Links typeID to groupID. Saves as tsv.
+    Links typeID to groupID.
+
+    type_id, group_id
+        /data/item.db
+            table: typeID_group
     """
     linked = {}
     with zipfile.ZipFile(os.getcwd()+"/data/sde.zip", "r") as openzip:
@@ -175,9 +214,17 @@ def link_typeID_group():
         if this_typeID["published"] == True:
             linked[typeID] = type_IDs[typeID]["groupID"]
     
-    with open(os.getcwd()+"/data/typeID_groupID.tsv", "w") as file:
-        for typeID in linked:
-            file.write(f"{str(typeID)}\t{str(linked[typeID])}\n")
+    conn = sqlite3.connect(os.getcwd()+"/data/item.db")
+    cur = conn.cursor()
+    cur.execute("DROP TABLE IF EXISTS typeID_group")
+    cur.execute("CREATE TABLE typeID_group (type_id int, group_id int)")
+    
+    for typeID in linked:
+        cur.execute("INSERT INTO typeID_group (type_id, group_id) VALUES \
+                    (?, ?)", (typeID, linked[typeID]))
+    conn.commit()
+    conn.close()
+
 
 def build_location_info_db():
     """

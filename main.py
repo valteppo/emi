@@ -6,17 +6,10 @@ DONE, to test:
 
 
 """ Control loop
-Check folders exist.
-Check sde exists.
-Build system info database. TODO
-    INFO:
-    - Region ID
-    - Constellation ID
-    - System ID
-    - Security Status
-    - Connections (system ID)
-    - Station IDs
-Make tsvs.
+Janitor:
+    Check folders exist.
+    Check sde exists.
+    Build system info database.
 Download orders.
 Determine best buy/sell locations in periphery regions.
 Get arbritrage candidates from price differences.
@@ -54,6 +47,10 @@ System data
                 }
 }
 """
-import eve_map
+import data_handling
+import esi_market
 
-eve_map.system_connections_builder()
+import asyncio
+
+asyncio.run(esi_market.download_all_orders())
+

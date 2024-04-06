@@ -3,26 +3,23 @@ Market data retrieval
 """
 
 import aiohttp
-import asyncio
 import os
 import sqlite3
 import time
-import itertools
-import requests
-import concurrent.futures
-
-import data_handling
 
 async def download_all_orders():
-    with open(os.getcwd()+"/data/k-spaceRegions.tsv", "r") as file:
-        region_data = file.read().strip().split("\n")
-        regions = [i.split("\t")[0] for i in region_data]
+    cwd = os.getcwd()
+    conn = sqlite3.connect(cwd+"/data/location.db")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM k_space_regions")
+    regions = cur.fetchall()
+    regions = [i[0] for i in regions]
 
     async with aiohttp.ClientSession() as session:
         for region in regions:
             orders = []
             print(f"/market/orders/{region}.db")
-            conn = sqlite3.connect(os.getcwd()+f"/market/orders/{region}.db")
+            conn = sqlite3.connect(cwd+f"/market/orders/{region}.db")
             cur = conn.cursor()
 
             url = "https://esi.evetech.net/latest/markets/"+str(region)+"/orders/"
@@ -57,179 +54,3 @@ async def download_all_orders():
                                 orders)
             conn.commit()
             conn.close()
-
-def construct_prices():
-    """
-    Construct regional buy & sell prices in major hubs from order data.
-    """
-    cwd = os.getcwd()
-
-    with open(cwd+"/data/k-spaceRegions.tsv", "r") as file:
-        regions = file.read().strip().split("\n")
-    for region in regions:
-        order_conn = sqlite3.Connection(cwd+f"/market/orders/{region}.db")
-        order_cur = order_conn.cursor()
-        order_cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name ASC")
-        latest_order_table = order_cur.fetchone()[0]
-
-        order_cur.execute(f"SELECT * FROM {latest_order_table} WHERE duration < 365")
-        orders = order_cur.fetchall()
-        # (duration, is_buy_order, issued, location_id, min_volume, order_id, \
-        # price, range, system_id, type_id, volume_remain, volume_total)\
-        system_split = {}
-        for order in orders:
-            if order[8] in system_split: #order[8] is system_id
-                system_split[order[8]].append(order)
-            else:
-                system_split[order[8]] = [order]
-        
-        # Determine the biggest hub
-        count = 0
-        leader = 0
-        for system in system_split:
-            if len(system_split[system]) > count:
-                count = len(system_split[system])
-                leader = system
-        
-        # If there is a hub, determine prices.
-        if leader > 0:
-            # Split orders to items.
-            items= {}
-            for order in system_split[leader]:
-                if order[9] in items:
-                    if order[1] == 1:
-                        if items[order[9]]["buy"] < order[6]:
-                            items[order[9]]["buy"] = order[6]
-                    else:
-                        if items[order[9]]["sell"] < order[6]:
-                            items[order[9]]["sell"] = order[6]
-                else:
-                    items[order[9]] = {"buy":0,
-                                       "sell":0}
-                    if order[1] == 1:
-                        if items[order[9]]["buy"] < order[6]:
-                            items[order[9]]["buy"] = order[6]
-                    else:
-                        if items[order[9]]["sell"] < order[6]:
-                            items[order[9]]["sell"] = order[6]
-            
-            # Remove duds (only items that are available/being bought at regional center)
-            deletion_list = []
-            for item in items:
-                if items[item]["buy"] == 0 and items[item]["sell"] == 0:
-                    deletion_list.append(item)
-            for item in deletion_list:
-                del items[item]
-            
-            # Save regional prices
-            try:
-                os.remove(cwd+f"/market/prices/{region}.db")
-            except:
-                pass
-            summation_conn = sqlite3.Connection(cwd+f"/market/prices/{region}.db")
-            summation_cur = summation_conn.cursor()
-            summation_cur.execute(f"CREATE TABLE prices_system{str(leader)} \
-                                (type_id int, buy float, sell float)")
-            for item in items:
-                summation_cur.execute(f"INSERT INTO prices_system{str(leader)} \
-                                    (type_id, buy, sell) \
-                                    VALUES \
-                                    (?, ?, ?)", (item, items[item]["buy"], items[item]["sell"]))
-            summation_conn.commit()
-            summation_conn.close()
-
-def construct_region_range_buy_orders():
-    """
-    Saves the region-wide buy orders in a region, to gauge where remote buy's can be effective.
-    """
-    cwd = os.getcwd()
-
-    with open(cwd+"/data/k-spaceRegions.tsv", "r") as file:
-        regions = file.read().strip().split("\n")
-
-    for region in regions:
-        order_conn = sqlite3.Connection(cwd+f"/market/orders/{region}.db")
-        order_cur = order_conn.cursor()
-        order_cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name ASC")
-        latest_order_table = order_cur.fetchone()[0]
-
-        order_cur.execute(f"SELECT * FROM {latest_order_table} WHERE duration < 365 AND is_buy_order = 1 AND range = 'region' OR range = '40' AND min_volume = 1")
-        orders = order_cur.fetchall()
-        if len(orders) == 0:
-            continue
-        items = {}
-        for order in orders:
-            if order[9] not in items:
-                items[order[9]] = order
-            else:
-                current_leader = items[order[9]]
-                if order[6] > current_leader[6]:
-                    items[order[9]] = order
-        
-
-        # (duration, is_buy_order, issued, location_id, min_volume, order_id, \
-        # price, range, system_id, type_id, volume_remain, volume_total)\
-            
-        # Save regional prices
-
-        summation_conn = sqlite3.Connection(cwd+f"/market/prices/{region}.db")
-        summation_cur = summation_conn.cursor()
-        summation_cur.execute(f"CREATE TABLE IF NOT EXISTS regional_buy \
-                            (type_id int, buy float, volume int)")
-        summation_cur.execute("DELETE FROM regional_buy")
-        for item in items:
-            summation_cur.execute(f"INSERT INTO regional_buy \
-                                (type_id, buy, volume) \
-                                VALUES \
-                                (?, ?, ?)", (items[item][9], items[item][6], items[item][10]))
-        summation_conn.commit()
-        summation_conn.close()
-
-def location_orders(location, type_id):
-    """
-    Select prices that correspond to item in location (system/region).
-    """
-    location_translate = data_handling.translator_location()
-    item_translate = data_handling.translator_items()
-    cwd = os.getcwd()
-
-    with open(cwd+"/data/k-spaceRegions.tsv", "r") as tsvfile:
-        tsv_data = tsvfile.read().strip().split("\n")
-        region_ids = [int(i.split("\t")[0]) for i in tsv_data]
-
-    location_is_region = False
-    if int(location) in region_ids:
-        location_is_region = True
-
-    def handle_region_requests(region_id, type_id):
-        """
-        Highest buy order will be the top of the list.
-        Lowest sell order will be the last on the list.
-        """
-        conn = sqlite3.connect(os.getcwd()+f"/market/orders/{str(region_id)}.db")
-        cur = conn.cursor()
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name ASC")
-        latest_order_table = cur.fetchone()[0]
-        cur.execute(f"SELECT * FROM {latest_order_table} \
-                    WHERE \
-                    duration < 365 AND min_volume = 1 AND type_id = {str(type_id)}")
-        orders = cur.fetchall()
-        conn.close()
-
-        return orders
-    
-    def handle_system_requests(system_id, type_id):
-        pass
-
-    # Branch
-    if location_is_region:
-        return handle_region_requests(region_id=location, type_id=type_id)
-    else:
-        return handle_system_requests(system_id=location, type_id=type_id)
-
-trit = location_orders(location=10000002, type_id=34)
-print(trit[0])
-
-
-
-

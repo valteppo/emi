@@ -5,6 +5,14 @@ import os
 
 import data_handling
 
+def run_set_up():
+    check_folders_exist()
+    data_handling.maintain_sde()
+    data_handling.id_translator_constructor()
+    data_handling.vetted_groups_construction()
+    data_handling.link_typeID_group()
+    data_handling.build_location_info_db()
+
 def check_folders_exist():
     def make (folder_name):
         os.mkdir(folder_name)
@@ -21,9 +29,3 @@ def check_folders_exist():
                 if not os.path.isdir(directory+"/"+subdir):
                     make(directory+"/"+subdir)
 
-def run_set_up():
-    data_handling.maintain_sde()
-    data_handling.id_translator_constructor()
-    data_handling.link_typeID_group()
-    data_handling.build_location_info_db()
-    
