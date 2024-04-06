@@ -12,7 +12,7 @@ import requests
 import copy
 import time
 
-from data import translator_location
+from data_handling import translator_location
 
 def system_connections_builder():
     """

@@ -304,6 +304,3 @@ def build_location_info_db():
                                  station["station_name"]))
     conn.commit()
     conn.close()
-
-
-build_location_info_db()

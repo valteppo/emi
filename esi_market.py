@@ -11,7 +11,7 @@ import itertools
 import requests
 import concurrent.futures
 
-import data
+import data_handling
 
 async def download_all_orders():
     with open(os.getcwd()+"/data/k-spaceRegions.tsv", "r") as file:
@@ -189,8 +189,8 @@ def location_orders(location, type_id):
     """
     Select prices that correspond to item in location (system/region).
     """
-    location_translate = data.translator_location()
-    item_translate = data.translator_items()
+    location_translate = data_handling.translator_location()
+    item_translate = data_handling.translator_items()
     cwd = os.getcwd()
 
     with open(cwd+"/data/k-spaceRegions.tsv", "r") as tsvfile:
