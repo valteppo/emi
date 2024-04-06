@@ -18,7 +18,6 @@ async def download_all_orders():
     async with aiohttp.ClientSession() as session:
         for region in regions:
             orders = []
-            print(f"/market/orders/{region}.db")
             conn = sqlite3.connect(cwd+f"/market/orders/{region}.db")
             cur = conn.cursor()
 
@@ -38,7 +37,6 @@ async def download_all_orders():
                     async with session.get(url=url, params=params) as resp:
                         page_orders = await resp.json()
                         [orders.append(i) for i in page_orders]
-            print(region, len(orders))
             time_now = int(time.time())
             cur.execute(f"CREATE TABLE unix{time_now} \
                         (duration int, is_buy_order bool, issued text, location_id int,\

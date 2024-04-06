@@ -47,10 +47,7 @@ System data
                 }
 }
 """
-import data_handling
-import esi_market
+import janitor
 
-import asyncio
-
-asyncio.run(esi_market.download_all_orders())
+janitor.check_folders_exist()
 
