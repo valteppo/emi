@@ -351,3 +351,19 @@ def build_location_info_db():
                                  station["station_name"]))
     conn.commit()
     conn.close()
+
+def orders_clean_up():
+    """
+    Removes old order tables from regional databases. Leaves only the freshest.
+    """
+    cwd = os.getcwd()
+    order_databases = os.listdir(cwd+"/market/orders/")
+    for database in order_databases:
+        conn = sqlite3.connect(cwd+"/market/orders/"+database)
+        cur = conn.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
+        tables = [i[0] for i in cur.fetchall()]
+        if len(tables)>1:
+            for i in range(1, len(tables)):
+                cur.execute(f"DROP TABLE {tables[i]}")
+        conn.close()

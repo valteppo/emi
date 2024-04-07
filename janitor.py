@@ -7,6 +7,7 @@ import asyncio
 import data_handling
 import esi_market
 import eve_map
+import volume
 
 def set_up():
     check_folders_exist()
@@ -17,7 +18,9 @@ def set_up():
     data_handling.build_location_info_db()
 
 def update_esi_data():
+    data_handling.orders_clean_up()
     asyncio.run(esi_market.download_all_orders())
+    volume.difference()
     eve_map.download_kills()
     
 

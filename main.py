@@ -49,5 +49,5 @@ System data
 """
 import janitor
 
-janitor.check_folders_exist()
+janitor.update_esi_data()
 
