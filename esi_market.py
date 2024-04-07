@@ -26,7 +26,7 @@ async def download_all_orders():
             xpage = 0
             params = {"page":page}
 
-            async with session.get(url=url, params=params) as resp:
+            async with session.get(url=url, params=params, headers={"user-agent":"IG char: Great Artista"}) as resp:
                 headers = dict(resp.headers)
                 xpage = int(headers["X-Pages"])
                 page_orders = await resp.json()

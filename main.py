@@ -1,9 +1,3 @@
-""" FIRST THINGS:
-DONE, to test:
-    - eve_map.system_connection_builder()
-
-"""
-
 
 """ Control loop
 Janitor:

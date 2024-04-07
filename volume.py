@@ -145,7 +145,7 @@ def difference():
         source_cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
         tables = [i[0] for i in source_cur.fetchall()]
         if len(tables) < 2:
-            return # maybe say something? 
+            return
 
         target_conn = sqlite3.connect(cwd+"/market/volume/"+target_database_name)
         target_cur = target_conn.cursor()
@@ -198,7 +198,8 @@ def difference():
 
         source_cur.execute(difference_cmd)
         difference_results = source_cur.fetchall()
-        
+        source_conn.close()
+            
         target_deposit_cmd = f"""CREATE TABLE IF NOT EXISTS 
                                 events (system_id int, 
                                         type_id int, 
@@ -206,7 +207,8 @@ def difference():
                                         sell_volume int, 
                                         buy_value float, 
                                         sell_value float, 
-                                        interval int)"""
+                                        interval int,
+                                        timestamp int)"""
         target_cur.execute(target_deposit_cmd)
         target_deposit_cmd = """INSERT INTO events (
                                     system_id, 
@@ -215,10 +217,11 @@ def difference():
                                     sell_volume, 
                                     buy_value, 
                                     sell_value, 
-                                    interval
+                                    interval,
+                                    timestamp
                                 )
                                 VALUES (
-                                    ?,?,?,?,?,?,?
+                                    ?,?,?,?,?,?,?, strftime('%s', 'now')
                                 )
                             """
         for line in difference_results:
@@ -226,6 +229,18 @@ def difference():
             line_data.append(time_difference)
             target_cur.execute(target_deposit_cmd, line_data)
         target_conn.commit()
+        target_conn.close()
 
     for database in order_databases:
         conduit(database)
+
+
+# daily volume estimate WIP
+"""
+SELECT
+    type_id, 
+    (SUM(buy_volume)*60*60*24) / (SUM(interval))  AS buy_volume, 
+    (SUM(sell_volume)*60*60*24) / (SUM(interval)) AS sell_volume
+FROM events
+GROUP BY type_id;
+"""
