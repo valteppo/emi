@@ -95,22 +95,24 @@ def build_map():
 
 def download_kills():
     """
-    Downloads the kills from esi. Sums kills to kills table.
-    No regards to rate, so useful as normalized output.
+    Downloads the kills from esi. Stores with timestamp.
     """
     cwd = os.getcwd()
     conn = sqlite3.connect(cwd+"/data/kill.db")
     cur = conn.cursor()
-    cur.execute(f"CREATE TABLE IF NOT EXISTS kills (npc_kills int, pod_kills int, ship_kills int, system_id int UNIQUE)")
+    cur.execute(f"CREATE TABLE IF NOT EXISTS \
+                kills (system_id int, npc_kills int, pod_kills int, ship_kills int, timestamp int)")
+    cur.execute("SELECT strftime('%s', 'now') - timestamp FROM kills ORDER BY timestamp DESC LIMIT 1")
+    last_query_since_seconds = cur.fetchone()
+    if last_query_since_seconds != None:
+        if last_query_since_seconds[0] < 60 * 60:
+            conn.close()
+            return
 
     r = requests.get(url="https://esi.evetech.net/latest/universe/system_kills/?datasource=tranquility", headers={"user-agent":"IG char: Great Artista"})    
     data = r.json()
-    cmd = "INSERT INTO kills (npc_kills, pod_kills, ship_kills, system_id)\
-            VALUES (:npc_kills, :pod_kills, :ship_kills, :system_id)\
-            ON CONFLICT(system_id)\
-            DO UPDATE SET   npc_kills = npc_kills + :npc_kills,\
-                            pod_kills = pod_kills + :pod_kills,\
-                            ship_kills = ship_kills + :ship_kills" # noice
+    cmd = "INSERT INTO kills (system_id, npc_kills, pod_kills, ship_kills, timestamp)\
+            VALUES (:system_id, :npc_kills, :pod_kills, :ship_kills, strftime('%s', 'now'))"
     cur.executemany(cmd, data)
     conn.commit()
     conn.close()
