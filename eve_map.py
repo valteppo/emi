@@ -103,7 +103,7 @@ def download_kills():
     cur = conn.cursor()
     cur.execute(f"CREATE TABLE IF NOT EXISTS kills (npc_kills int, pod_kills int, ship_kills int, system_id int UNIQUE)")
 
-    r = requests.get(url="https://esi.evetech.net/latest/universe/system_kills/?datasource=tranquility")    
+    r = requests.get(url="https://esi.evetech.net/latest/universe/system_kills/?datasource=tranquility", headers={"user-agent":"IG char: Great Artista"})    
     data = r.json()
     cmd = "INSERT INTO kills (npc_kills, pod_kills, ship_kills, system_id)\
             VALUES (:npc_kills, :pod_kills, :ship_kills, :system_id)\
