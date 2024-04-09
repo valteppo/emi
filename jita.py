@@ -36,5 +36,3 @@ def items_h(h):
     res = cur.fetchall()
     conn.close()
     return res
-
-print(items_h(6))
