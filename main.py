@@ -46,6 +46,6 @@ import time
 import datetime
 
 time_start = time.time()
-#janitor.update_esi_data()
+janitor.update_esi_data()
 with open("log.tsv", "a") as file:
     file.write(str(datetime.datetime.today())+"\t"+str(time.time()-time_start)+"\n")
