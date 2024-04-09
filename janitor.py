@@ -29,7 +29,7 @@ def check_folders_exist():
         os.mkdir(folder_name)
     
     directories = {
-        "market":["history", "orders", "prices", "volume"],
+        "market":["orders", "product", "volume"],
         "data":None
     }
     for directory in directories:
