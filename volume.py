@@ -233,14 +233,3 @@ def difference():
 
     for database in order_databases:
         conduit(database)
-
-
-# daily volume estimate WIP
-"""
-SELECT
-    type_id, 
-    (SUM(buy_volume)*60*60*24) / (SUM(interval))  AS buy_volume, 
-    (SUM(sell_volume)*60*60*24) / (SUM(interval)) AS sell_volume
-FROM events
-GROUP BY type_id;
-"""
