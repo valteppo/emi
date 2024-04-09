@@ -23,7 +23,7 @@ def items_h(h):
             type_id,
             sum(sell_value)/sum(sell_volume) as av_sell,
             sum(buy_value)/sum(buy_volume) as av_buy,
-            abs(sum(sell_volume) - sum(buy_volume)) as eff_volume
+            (CASE WHEN sum(sell_volume) > sum(buy_volume) THEN sum(buy_volume) ELSE sum(sell_volume) END) as eff_volume
         FROM events
         WHERE   system_id = 30000142 AND
                 strftime('%s') - timestamp < {h}*60*60
