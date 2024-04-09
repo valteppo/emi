@@ -137,3 +137,4 @@ def jita_freight(time_window=24):
     conn.commit()
     conn.close()
 
+jita_freight(24)

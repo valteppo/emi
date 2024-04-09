@@ -4,7 +4,7 @@ Jita station trader
 import os
 import sqlite3
 
-def items_h(h):
+def items_h(h=24):
     """
     Gets the items that made the most money in the last {h} hours.
     """
@@ -36,3 +36,5 @@ def items_h(h):
     res = cur.fetchall()
     conn.close()
     return res
+
+print(items_h(24))
