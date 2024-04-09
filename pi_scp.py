@@ -25,5 +25,3 @@ def get():
         os.replace(cwd+"\\transfer\\market\\volume\\"+db , cwd+"\\market\\volume\\"+db)
     for db in os.listdir(cwd+"/transfer/market/orders"):
         os.replace(cwd+"\\transfer\\market\\orders\\"+db , cwd+"\\market\\orders\\"+db)
-
-get()
