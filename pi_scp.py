@@ -19,7 +19,7 @@ def get():
     for ord in old_ord:
         os.remove(cwd+"\\market\\orders\\"+ord)
     # Load to transfer folder
-    subprocess.run(["scp","-r", "user@pi:/home/user/emi/transfer", cwd+"/transfer"])
+    subprocess.run(["scp","-r", "user@pi:/home/user/emi/transfer", cwd])
     # Relocate if ok
     for db in os.listdir(cwd+"/transfer/market/volume"):
         os.replace(cwd+"\\transfer\\market\\volume\\"+db , cwd+"\\market\\volume\\"+db)
