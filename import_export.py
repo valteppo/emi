@@ -5,13 +5,13 @@ Cross regional trade.
 import os
 import sqlite3
 
-def jita_freight(time_window=24):
+def jita_freight(h=24):
     """
     Find trade items in other regions to sell in jita.
     Or buy items in jita to sell else-where.
-    time_window is hours
+    Results from the last {h} hours.
 
-    Output saved in /market/product/interaction.db
+    Output saved in /market/product/interaction.db "freight"
     """
     cwd = os.getcwd()
     region_dbs = os.listdir(cwd+"/market/volume")
@@ -31,7 +31,7 @@ def jita_freight(time_window=24):
             sum(buy_value) / sum(buy_volume) as av_buy,
             sum(sell_value) / sum(sell_volume) as av_sell
         FROM events
-        WHERE strftime('%s') - timestamp < {time_window}*60*60
+        WHERE strftime('%s') - timestamp < {h}*60*60
         GROUP BY system_id, type_id;
         """
         cur.execute(cmd)

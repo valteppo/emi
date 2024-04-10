@@ -233,3 +233,13 @@ def difference():
 
     for database in order_databases:
         conduit(database)
+
+def volume_transfer():
+    """
+    Moves the volume folder to transfer folder.
+    """
+    cwd = os.getcwd()
+    for file in os.listdir(cwd+"/market/volume"):
+        os.popen(f'cp {cwd+"/market/volume/"+file} {cwd+"/transfer/market/volume/"+file}') 
+
+volume_transfer()

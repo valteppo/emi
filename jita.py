@@ -7,6 +7,8 @@ import sqlite3
 def items_h(h=24):
     """
     Gets the items that made the most money in the last {h} hours.
+
+    Output saved in /market/product/interaction.db "jita"
     """
 
     cwd = os.getcwd()
@@ -16,7 +18,7 @@ def items_h(h=24):
     cmd = f"""
     SELECT 
         type_id,
-        eff_volume as vol,
+        eff_volume,
         (av_sell-(av_buy * 1.08)) * eff_volume as profit        
     FROM (
         SELECT
@@ -35,6 +37,14 @@ def items_h(h=24):
     cur.execute(cmd)
     res = cur.fetchall()
     conn.close()
-    return res
 
-print(items_h(24))
+    conn = sqlite3.connect(cwd+"/market/product/interaction.db")
+    cur = conn.cursor()
+    cur.execute("DROP TABLE IF EXISTS jita")
+    cur.execute("CREATE TABLE jita (type_id int, eff_vol int, profit int)")
+    cmd = "INSERT INTO jita (type_id, eff_vol, profit) VALUES (?, ?, ?)"
+    cur.executemany(cmd, res)
+    conn.commit()
+    conn.close()    
+
+items_h(24)

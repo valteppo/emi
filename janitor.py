@@ -20,7 +20,9 @@ def set_up():
 def update_esi_data():
     data_handling.orders_clean_up()
     asyncio.run(esi_market.download_all_orders())
+    esi_market.order_transfer()
     volume.difference()
+    volume.volume_transfer()
     eve_map.download_kills()
     
 
@@ -29,6 +31,7 @@ def check_folders_exist():
         os.mkdir(folder_name)
     
     directories = {
+        "transfer":["orders", "volume"],
         "market":["orders", "product", "volume"],
         "data":None
     }

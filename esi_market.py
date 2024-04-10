@@ -52,3 +52,11 @@ async def download_all_orders():
                                 orders)
             conn.commit()
             conn.close()
+
+def order_transfer():
+    """
+    Moves the order folder to transfer folder.
+    """
+    cwd = os.getcwd()
+    for file in os.listdir(cwd+"/market/orders"):
+        os.popen(f'cp {cwd+"/market/orders/"+file} {cwd+"/transfer/market/orders/"+file}') 
