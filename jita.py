@@ -46,5 +46,3 @@ def items_h(h=24):
     cur.executemany(cmd, res)
     conn.commit()
     conn.close()    
-
-items_h(24)

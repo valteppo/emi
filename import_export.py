@@ -136,5 +136,3 @@ def jita_freight(h=24):
                         (?, ?, ?, ?, ?)", line)
     conn.commit()
     conn.close()
-
-jita_freight(24)

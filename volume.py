@@ -241,5 +241,3 @@ def volume_transfer():
     cwd = os.getcwd()
     for file in os.listdir(cwd+"/market/volume"):
         os.popen(f'cp {cwd+"/market/volume/"+file} {cwd+"/transfer/market/volume/"+file}') 
-
-volume_transfer()
