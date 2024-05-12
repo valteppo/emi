@@ -32,7 +32,7 @@ def check_folders_exist():
     
     directories = {
         "transfer":["orders", "volume"],
-        "market":["orders", "product", "volume"],
+        "market":["orders", "product", "volume", "history", "trade"],
         "data":None
     }
     for directory in directories:

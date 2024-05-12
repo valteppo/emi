@@ -14,12 +14,10 @@ Determine best items.
 Form item list to buy.
 Form eve market compliant string.
 """
+import os
+import asyncio
 
-import janitor
-import time
-import datetime
+import esi_market
+import esi_volume
 
-time_start = time.time()
-janitor.update_esi_data()
-with open("log.tsv", "a") as file:
-    file.write(str(datetime.datetime.today())+"\t"+str(time.time()-time_start)+"\n")
+asyncio.run(esi_market.download_all_orders())
