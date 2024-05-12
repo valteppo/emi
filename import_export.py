@@ -43,19 +43,12 @@ def jita_freight(h=24):
             system_id, type_id, buy_volume, sell_volume, av_buy, av_sell = line
             if system_id not in data[region_id]:
                 data[region_id][system_id] = {}
-                data[region_id][system_id][type_id] = {
-                    "buy_volume":buy_volume,
-                    "sell_volume":sell_volume,
-                    "av_buy":av_buy,
-                    "av_sell":av_sell
-                }
-            else:
-                data[region_id][system_id][type_id] = {
-                    "buy_volume":buy_volume,
-                    "sell_volume":sell_volume,
-                    "av_buy":av_buy,
-                    "av_sell":av_sell
-                }
+            data[region_id][system_id][type_id] = {
+                "buy_volume":buy_volume,
+                "sell_volume":sell_volume,
+                "av_buy":av_buy,
+                "av_sell":av_sell
+            }
     
     # Find demand
     jita_export = {}

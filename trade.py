@@ -62,18 +62,29 @@ def preliminary_jita_import_export(history_heure = 48):
                 pass
     
     pr = 0
+    n = 0
     for item in translated_import:
+        if n > 30:
+            continue
         if item[0] == "Amarr" and item[3] > 10_000_000:
+            print("import", item)
             pr += item[3]
+            n += 1
 
     print("import profit:",pr)
     pr = 0
+    n = 0
     for item in translated_export:
+        if n > 30:
+            continue
         if item[0] == "Amarr" and item[3] > 10_000_000:
+            print("export", item)
             pr += item[3]
+            n += 1
     print("export profit:", pr)
 
     # TODO continue
     # Maybe simplify this to old system
 
+preliminary_jita_import_export(24)
 print(jita_station_trades(12))
