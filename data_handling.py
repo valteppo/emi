@@ -366,4 +366,22 @@ def orders_clean_up():
         if len(tables)>1:
             for i in range(1, len(tables)):
                 cur.execute(f"DROP TABLE {tables[i]}")
+        cur.execute("VACUUM")
+        conn.close()
+
+def history_clean_up():
+    """
+    Removes old volume tables from volume histories. Leaves only the freshest.
+    """
+    cwd = os.getcwd()
+    history_databases = os.listdir(cwd+"/market/history/")
+    for database in history_databases:
+        conn = sqlite3.connect(cwd+"/market/history/"+database)
+        cur = conn.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
+        tables = [i[0] for i in cur.fetchall()]
+        if len(tables)>1:
+            for i in range(1, len(tables)):
+                cur.execute(f"DROP TABLE {tables[i]}")
+        cur.execute("VACUUM")
         conn.close()

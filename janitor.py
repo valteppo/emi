@@ -6,8 +6,7 @@ import asyncio
 
 import data_handling
 import esi_market
-import eve_map
-import volume
+import esi_volume
 
 def set_up():
     check_folders_exist()
@@ -17,13 +16,15 @@ def set_up():
     data_handling.link_typeID_group()
     data_handling.build_location_info_db()
 
-def update_esi_data():
+def update_orders_data():
     data_handling.orders_clean_up()
     asyncio.run(esi_market.download_all_orders())
     esi_market.order_transfer()
-    volume.difference()
-    volume.volume_transfer()
-    eve_map.download_kills()
+
+def download_volume_histories():
+    data_handling.history_clean_up()
+    esi_volume.download_all_regions()
+    esi_volume.history_transfer()
     
 
 def check_folders_exist():
@@ -32,7 +33,7 @@ def check_folders_exist():
     
     directories = {
         "transfer":["orders", "volume"],
-        "market":["orders", "product", "volume", "history", "trade"],
+        "market":["orders", "product", "history", "trade"],
         "data":None
     }
     for directory in directories:

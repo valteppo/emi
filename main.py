@@ -14,10 +14,3 @@ Determine best items.
 Form item list to buy.
 Form eve market compliant string.
 """
-import os
-import asyncio
-
-import esi_market
-import esi_volume
-
-asyncio.run(esi_market.download_all_orders())

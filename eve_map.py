@@ -2,15 +2,9 @@
 Universe related functions
 """
 
-import zipfile
 import os
-import yaml
-from collections import deque
-import json
 import sqlite3
 import requests
-import copy
-import time
 
 from data_handling import translator_location
 

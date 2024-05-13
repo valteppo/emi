@@ -7,49 +7,6 @@ import time
 
 import data_handling
 
-def items_h(h=24):
-    """
-    Gets the items that made the most money in the last {h} hours.
-
-    Output saved in /market/product/interaction.db "jita"
-    """
-
-    cwd = os.getcwd()
-    conn = sqlite3.connect(cwd+"/market/volume/10000002.db")
-    cur = conn.cursor()
-
-    cmd = f"""
-    SELECT 
-        type_id,
-        eff_volume,
-        (av_sell-(av_buy * 1.08)) * eff_volume as profit        
-    FROM (
-        SELECT
-            type_id,
-            sum(sell_value)/sum(sell_volume) as av_sell,
-            sum(buy_value)/sum(buy_volume) as av_buy,
-            (CASE WHEN sum(sell_volume) > sum(buy_volume) THEN sum(buy_volume) ELSE sum(sell_volume) END) as eff_volume
-        FROM events
-        WHERE   system_id = 30000142 AND
-                strftime('%s') - timestamp < {h}*60*60
-        GROUP BY type_id
-    ) AS temp
-    GROUP BY type_id 
-    ORDER BY profit DESC;
-    """
-    cur.execute(cmd)
-    res = cur.fetchall()
-    conn.close()
-
-    conn = sqlite3.connect(cwd+"/market/product/interaction.db")
-    cur = conn.cursor()
-    cur.execute("DROP TABLE IF EXISTS jita")
-    cur.execute("CREATE TABLE jita (type_id int, eff_vol int, profit int)")
-    cmd = "INSERT INTO jita (type_id, eff_vol, profit) VALUES (?, ?, ?)"
-    cur.executemany(cmd, res)
-    conn.commit()
-    conn.close()    
-
 def jita_esi_trader(volume_day_history=8, min_eff_vol=3, tax_buffer=1.08):
     """
     Uses esi data to find trades.
@@ -161,14 +118,13 @@ def jita_esi_trader(volume_day_history=8, min_eff_vol=3, tax_buffer=1.08):
     results = cur.fetchall()
 
     item_translator = data_handling.translator_items()
-    items = 50
-    i = 0
-    displayed = 0
-    while displayed < items and i < len(results):
-        type_id, buy_price, sell_price, eff_vol, profit = results[i]
-        if type_id in item_translator and "SKIN" not in item_translator[type_id] and "Women's" not in item_translator[type_id] and "Men's" not in item_translator[type_id]: # XD
-            print(item_translator[type_id], profit)
-            displayed += 1
-        i+=1
+    with open("trade.tsv", "w") as file:
+        for item in results:
+            type_id, buy_price, sell_price, eff_volume, profit = item
+            if type_id in item_translator:
+                item_name = item_translator[type_id]
+                if "SKIN" not in item_name and "Men's" not in item_name and "Women's" not in item_name:
+                    file.write(f"{item_name}\t{int(profit):,}\t{eff_volume}\n")
 
-jita_esi_trader(30, 0, 1.07)
+
+jita_esi_trader(30, 0.5, 1.07)

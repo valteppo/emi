@@ -5,7 +5,7 @@ import os
 import sqlite3
 
 import jita
-import import_export
+import inactive.import_export as import_export
 import data_handling
 
 def jita_station_trades(history_heure = 48):
