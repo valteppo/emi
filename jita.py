@@ -50,7 +50,7 @@ def items_h(h=24):
     conn.commit()
     conn.close()    
 
-def jita_esi_trader():
+def jita_esi_trader(volume_day_history=8, min_eff_vol=3, tax_buffer=1.08):
     """
     Uses esi data to find trades.
     """
@@ -114,45 +114,45 @@ def jita_esi_trader():
         GROUP BY buy.type_id;"""
     
     # find effective tradeable volume
-    """ SELECT 
+    f""" SELECT 
             type_id, 
-            SUM(eff_vol)/8
+            SUM(eff_vol)/{volume_day_history}
         FROM (
             SELECT
                 type_id, lowest, average, highest, volume,
                 ((CASE WHEN average-lowest < highest-average THEN average-lowest ELSE highest-average END) / average) * volume AS eff_vol
             FROM volume 
-            WHERE strftime('%s', 'now') - date < 60*60*24*8
+            WHERE strftime('%s', 'now') - date < 60*60*24*{volume_day_history}
         )
         GROUP BY type_id;"""
     
     # combine
-    cmd = """
+    cmd = f"""
     SELECT type_id, buy_price, sell_price, eff_vol,
-            (sell_price - (buy_price * 1.08)) * eff_vol AS profit
+            (sell_price - (buy_price * {tax_buffer})) * eff_vol AS profit
     FROM
         (SELECT * FROM
             ((SELECT buy.type_id as type_id, buy.buy_price as buy_price, sell.sell_price as sell_price FROM 
-                (SELECT type_id, MAX(price) AS buy_price FROM orders WHERE system_id = 30000142 AND is_buy_order = 1 GROUP BY type_id) AS buy
+                (SELECT type_id, MAX(price) AS buy_price FROM orders WHERE (system_id = 30000142 OR system_id = 30000144) AND is_buy_order = 1 GROUP BY type_id) AS buy
                 JOIN 
-                (SELECT type_id, MIN(price) AS sell_price FROM orders WHERE system_id = 30000142 AND is_buy_order = 0 GROUP BY type_id) AS sell
+                (SELECT type_id, MIN(price) AS sell_price FROM orders WHERE (system_id = 30000142 OR system_id = 30000144) AND is_buy_order = 0 GROUP BY type_id) AS sell
                 ON buy.type_id = sell.type_id 
             GROUP BY buy.type_id) AS a
             JOIN
             (SELECT 
                 type_id, 
-                SUM(eff_vol)/8 as eff_vol
+                SUM(eff_vol)/{volume_day_history} as eff_vol
             FROM (
                 SELECT
                     type_id, lowest, average, highest, volume,
                     ((CASE WHEN average-lowest < highest-average THEN average-lowest ELSE highest-average END) / average) * volume AS eff_vol
                 FROM volume 
-                WHERE strftime('%s', 'now') - date < 60*60*24*8
+                WHERE strftime('%s', 'now') - date < 60*60*24*{volume_day_history}
             )
             GROUP BY type_id) AS b
             ON a.type_id = b.type_id)
         GROUP BY a.type_id)
-    WHERE profit > 10000000 AND eff_vol > 1
+    WHERE profit > 10000000 AND eff_vol > {min_eff_vol}
     GROUP BY type_id
     ORDER BY profit DESC;
     """
@@ -163,10 +163,12 @@ def jita_esi_trader():
     item_translator = data_handling.translator_items()
     items = 50
     i = 0
-    while i < items or i >= len(results):
+    displayed = 0
+    while displayed < items and i < len(results):
         type_id, buy_price, sell_price, eff_vol, profit = results[i]
-        if type_id in item_translator:
+        if type_id in item_translator and "SKIN" not in item_translator[type_id] and "Women's" not in item_translator[type_id] and "Men's" not in item_translator[type_id]: # XD
             print(item_translator[type_id], profit)
+            displayed += 1
         i+=1
 
-jita_esi_trader()
+jita_esi_trader(30, 0, 1.07)
