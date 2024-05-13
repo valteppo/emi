@@ -7,7 +7,7 @@ import time
 
 import data_handling
 
-def jita_esi_trader(volume_day_history=8, min_eff_vol=3, tax_buffer=1.08):
+def jita_esi_trader(volume_day_history=15, min_eff_vol=0.5, tax_buffer=1.07):
     """
     Uses esi data to find trades.
     """
@@ -98,7 +98,7 @@ def jita_esi_trader(volume_day_history=8, min_eff_vol=3, tax_buffer=1.08):
             JOIN
             (SELECT 
                 type_id, 
-                SUM(eff_vol)/{volume_day_history} as eff_vol
+                SUM(eff_vol) as eff_vol
             FROM (
                 SELECT
                     type_id, lowest, average, highest, volume,
@@ -127,4 +127,4 @@ def jita_esi_trader(volume_day_history=8, min_eff_vol=3, tax_buffer=1.08):
                     file.write(f"{item_name}\t{int(profit):,}\t{eff_volume}\n")
 
 
-jita_esi_trader(30, 0.5, 1.07)
+jita_esi_trader()
