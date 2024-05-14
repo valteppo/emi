@@ -3,7 +3,7 @@ Get market data from raspberry pi.
 """
 import os
 import subprocess
-from tkinter import Tk
+import pyperclip
 
 def get_orders_volumes():
     """
@@ -48,6 +48,6 @@ def get_jita_trades():
 
     with open("quickbar.txt", "w") as file:
         file.write(quickbar)
-    
+    pyperclip.copy(quickbar)
 
 get_jita_trades()
