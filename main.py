@@ -14,3 +14,9 @@ Determine best items.
 Form item list to buy.
 Form eve market compliant string.
 """
+
+import time
+
+# Cron test
+with open(f"{int(time.time())}.txt", "w") as file:
+    file.write("Success.\n")
