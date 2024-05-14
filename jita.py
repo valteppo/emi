@@ -127,4 +127,4 @@ def jita_esi_trader(volume_day_history=15, min_eff_vol=0.5, tax_buffer=1.07):
                     file.write(f"{item_name}\t{int(profit):,}\t{eff_volume}\n")
 
 
-jita_esi_trader()
+jita_esi_trader() # keep here, used in rasp trade generation

@@ -3,8 +3,9 @@ Get market data from raspberry pi.
 """
 import os
 import subprocess
+from tkinter import Tk
 
-def get():
+def get_orders_volumes():
     """
     Replaces local volume and orders with ones stored in raspi.
     """
@@ -26,4 +27,27 @@ def get():
     for db in os.listdir(cwd+"/transfer/market/orders"):
         os.replace(cwd+"\\transfer\\market\\orders\\"+db , cwd+"\\market\\orders\\"+db)
 
-get()
+def get_jita_trades():
+    """
+    Download the generated trade.tsv from raspberry
+    """
+    cwd = os.getcwd()
+    subprocess.run(["scp","-r", "user@pi:/home/user/emi/trade.tsv", cwd+"/jita_trades.tsv"])
+    with open("jita_trades.tsv", "r") as file:
+        data = file.readlines()[:-1]
+    
+    quickbar = ""
+    count_len = len(str(len(data)))
+    count = 0
+    for line in data:
+        item, profit, volume = line.strip().split("\t")
+        current_count_len = len(str(count))
+        zerobuffer = "".join("0"* (count_len - current_count_len))
+        quickbar += f"+ {zerobuffer}{count} {item} [{profit} ISK]\n- {item} [{volume}]\n"
+        count += 1
+
+    with open("quickbar.txt", "w") as file:
+        file.write(quickbar)
+    
+
+get_jita_trades()
