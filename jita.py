@@ -133,7 +133,7 @@ def jita_esi_trader(volume_day_history=15, min_eff_vol=0.5, tax_buffer=1.07):
     results = cur.fetchall()
 
     item_translator = data_handling.translator_items()
-    with open("/output/jita_station_trade.tsv", "w") as file:
+    with open(cwd+"/output/jita_station_trade.tsv", "w") as file:
         for item in results:
             type_id, buy_price, sell_price, eff_volume, profit = item
             if type_id in item_translator:

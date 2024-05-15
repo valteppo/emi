@@ -33,7 +33,7 @@ def get_jita_trades():
     """
     cwd = os.getcwd()
     subprocess.run(["scp","-r", "user@pi:/home/user/emi/output/jita_station_trade.tsv", cwd+"/output/jita_station_trade.tsv"])
-    with open("jita_trades.tsv", "r") as file:
+    with open("/output/jita_station_trade.tsv", "r") as file:
         data = file.readlines()[:-1]
     
     quickbar = ""
