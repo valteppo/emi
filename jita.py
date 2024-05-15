@@ -130,16 +130,29 @@ def jita_esi_trader(volume_day_history=15, min_eff_vol=0.5, tax_buffer=1.07):
     """
 
     cur.execute(cmd)
-    results = cur.fetchall()
+    data = cur.fetchall()
+    conn.close()
 
     item_translator = data_handling.translator_items()
-    with open(cwd+"/output/jita_station_trade.tsv", "w") as file:
-        for item in results:
-            type_id, buy_price, sell_price, eff_volume, profit = item
-            if type_id in item_translator:
-                item_name = item_translator[type_id]
-                if translate_typeID_groupID[type_id] in vetted_groups:
-                    file.write(f"{item_name}\t{int(profit):,}\t{eff_volume}\n")
+
+    quickbar = ""
+    count_len = len(str(len(data)))
+    count = 0
+    current_count_len = len(str(count))
+    zerobuffer = "".join("0"* ((count_len - current_count_len)+1))
+    quickbar += f"+ {zerobuffer} This is the jita station trade list.\n"
+    count +=1
+    for line in data:
+        type_id, buy_price, sell_price, eff_vol, profit = line
+        if type_id in item_translator:
+            if translate_typeID_groupID[type_id] in vetted_groups:
+                current_count_len = len(str(count))
+                zerobuffer = "".join("0"* (count_len - current_count_len))
+                quickbar += f"+ {zerobuffer}{count} {item_translator[type_id]} [{int(profit):,} ISK]\n- {item_translator[type_id]} [{eff_vol}]\n"
+                count += 1
+
+    with open(cwd+"/output/Jita_station_trade.txt", "w") as file:
+        file.write(quickbar)
 
 
 jita_esi_trader() # keep here, used in rasp trade generation
