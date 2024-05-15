@@ -1,8 +1,9 @@
 /market/
+/inactive/
+/output/
 /data/sde.zip
 /data/checksum
 /transfer/
 /__pycache__/
 trade.tsv
-jita_trades.tsv
-quickbar.txt
+

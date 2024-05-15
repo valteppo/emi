@@ -15,8 +15,6 @@ Form item list to buy.
 Form eve market compliant string.
 """
 
-import time
+import data_handling
 
-# Cron test
-with open(f"{int(time.time())}.txt", "w") as file:
-    file.write("Success.\n")
+data_handling.id_translator_constructor()

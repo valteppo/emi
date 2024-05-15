@@ -1,0 +1,322 @@
+"""
+Find items worth courier contracting to and from. Destination/origin Jita.
+"""
+import os
+import sqlite3
+
+import data_handling
+
+def determine_region_info(region_id):
+    """
+    Returns tradehubs and shipping costs.
+    Returns dictionary if successful, None if not.
+    """
+    hubs = {}
+    if region_id == 10000043: # Domain
+        hubs["primary_system"] = 30002187 # Amarr
+        hubs["secondary_system"] = 30003491 # Ashab
+        hubs["cost_of_dst"] = 33_000_000
+        return hubs
+    
+    if region_id == 10000032: # Sinq Laison
+        hubs["primary_system"] = 30002659 # Dodixie
+        hubs["secondary_system"] = 30002661 # Botane
+        hubs["cost_of_dst"] = 15_000_000
+        return hubs
+    
+    if region_id == 10000042: # Metropolis
+        hubs["primary_system"] = 30002053 # Hek
+        hubs["secondary_system"] = 30002068 # Nakugard, some neighbour
+        hubs["cost_of_dst"] = 20_000_000
+        return hubs
+    
+    if region_id == 10000030: # Heimatar
+        hubs["primary_system"] = 30002543 # Eystur
+        hubs["secondary_system"] = 30002568 # Onga, some neighbour
+        hubs["cost_of_dst"] = 20_000_000
+        return hubs
+    
+    if region_id == 10000048: # Placid
+        hubs["primary_system"] = 30003794 # Stacmon
+        hubs["secondary_system"] = 30003794 # Stacmon, replicate
+        hubs["cost_of_dst"] = 20_000_000
+        return hubs
+    
+    if region_id == 10000033: # The Citadel
+        hubs["primary_system"] = 30002768 # Uedama
+        hubs["secondary_system"] = 30002764 # Hatakani
+        hubs["cost_of_dst"] = 15_000_000
+        return hubs
+    
+    if region_id == 10000068: # Verge Vendor
+        hubs["primary_system"] = 30005304 # Alentene
+        hubs["secondary_system"] = 30005305 # Cistuvaert
+        hubs["cost_of_dst"] = 16_000_000
+        return hubs
+    
+    if region_id == 10000069: # Black Rise
+        hubs["primary_system"] = 30045324 # Onnamon
+        hubs["secondary_system"] = 30045324 # Onnamon, replicate
+        hubs["cost_of_dst"] = 13_000_000
+        return hubs
+    
+    else:
+        return None
+    
+    
+
+def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff_vol=0.5, tax_buffer=1.07):
+    """
+    Major tradehub in another region <--> Jita
+    Minimum effective volume is not active.
+    """
+
+    region_info = determine_region_info(periphery_region_id)
+    if region_info == None:
+        return # no trade info determined for this region
+    
+    periphery_primary_hub = region_info["primary_system"]
+    periphery_secondary_hub = region_info["secondary_system"]
+    cost_of_dst = region_info["cost_of_dst"]
+
+    jita_id = 30000142
+    perimeter_id = 30000144
+    forge_id = 10000002
+
+    size = data_handling.get_size()
+    item_translator = data_handling.translator_items()
+    cwd = os.getcwd()
+
+    # Fetch vetted groups
+    conn = sqlite3.connect(os.getcwd()+"/data/item.db")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM vetted_groups")
+    vetted_groups = [i[0] for i in cur.fetchall()]
+
+    # Link type_id to group
+    cur.execute("SELECT * FROM typeID_group")
+    group_linking_data = cur.fetchall()
+    translate_typeID_groupID = {}
+    for line in group_linking_data:
+        type_id, group_id = line
+        translate_typeID_groupID[type_id] = group_id
+    conn.close()
+
+    # Get periphery prices
+    conn = sqlite3.connect(cwd+f"/market/orders/{periphery_region_id}.db")
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
+    tables = [i[0] for i in cur.fetchall()]
+    latest = tables[0]
+    cur.execute(f"""SELECT buy.type_id as type_id, buy.buy_price as buy_price, sell.sell_price as sell_price FROM 
+                        (SELECT type_id, MAX(price) AS buy_price FROM {latest} WHERE (system_id = {periphery_primary_hub} OR system_id = {periphery_secondary_hub}) AND is_buy_order = 1 GROUP BY type_id) AS buy
+                    JOIN 
+                        (SELECT type_id, MIN(price) AS sell_price FROM {latest} WHERE (system_id = {periphery_primary_hub} OR system_id = {periphery_secondary_hub}) AND is_buy_order = 0 GROUP BY type_id) AS sell
+                    ON buy.type_id = sell.type_id 
+                    GROUP BY buy.type_id;""")
+    periphery_price_data = cur.fetchall()
+    periphery_price = {}
+    for line in periphery_price_data:
+        type_id, buy_price, sell_price = line
+        periphery_price[type_id] = {"buy_price":buy_price,
+                                "sell_price":sell_price}
+    conn.close()
+
+    # Get Forge prices
+    conn = sqlite3.connect(cwd+f"/market/orders/{forge_id}.db")
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
+    tables = [i[0] for i in cur.fetchall()]
+    latest = tables[0]
+    cur.execute(f"""SELECT buy.type_id as type_id, buy.buy_price as buy_price, sell.sell_price as sell_price FROM 
+                        (SELECT type_id, MAX(price) AS buy_price FROM {latest} WHERE (system_id = {jita_id} OR system_id = {perimeter_id}) AND is_buy_order = 1 GROUP BY type_id) AS buy
+                    JOIN 
+                        (SELECT type_id, MIN(price) AS sell_price FROM {latest} WHERE (system_id = {jita_id} OR system_id = {perimeter_id}) AND is_buy_order = 0 GROUP BY type_id) AS sell
+                    ON buy.type_id = sell.type_id 
+                    GROUP BY buy.type_id;""")
+    forge_price_data = cur.fetchall()
+    forge_price = {}
+    for line in forge_price_data:
+        type_id, buy_price, sell_price = line
+        forge_price[type_id] = {"buy_price":buy_price,
+                                "sell_price":sell_price}
+    conn.close()
+
+    # Fetch periphery volume
+    conn = sqlite3.connect(cwd+f"/market/history/{periphery_region_id}.db")
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
+    tables = [i[0] for i in cur.fetchall()]
+    latest = tables[0]
+    cur.execute(f"""SELECT
+                        buy_data.type_id,
+                        buy_data.buy,
+                        sell_data.sell
+                    FROM (
+                            (SELECT 
+                                type_id, 
+                                SUM(eff_vol)/{volume_day_history} as buy
+                            FROM (
+                                SELECT
+                                    type_id, lowest, average, highest, volume,
+                                    ((average-lowest) / average) * ({latest}.volume / 2) AS eff_vol
+                                FROM {latest} 
+                                WHERE strftime('%s', 'now') - date < 60*60*24*{volume_day_history}
+                            )
+                            GROUP BY type_id) AS buy_data
+                        JOIN
+                            (SELECT 
+                                type_id, 
+                                SUM(eff_vol)/{volume_day_history} as sell
+                            FROM (
+                                SELECT
+                                    type_id, lowest, average, highest, volume,
+                                    ((highest-average) / average) * ({latest}.volume / 2) AS eff_vol
+                                FROM {latest} 
+                                WHERE strftime('%s', 'now') - date < 60*60*24*{volume_day_history}
+                            )
+                            GROUP BY type_id) AS sell_data
+                        ON buy_data.type_id = sell_data.type_id
+                    )
+                    """)
+    periphery_volume_data = cur.fetchall()
+    periphery_volume = {}
+    for line in periphery_volume_data:
+        type_id, buy_volume, sell_volume = line
+        periphery_volume[type_id] = {"buy_vol":buy_volume,
+                                  "sell_vol":sell_volume}
+    conn.close()
+
+    # Fetch Forge volume
+    conn = sqlite3.connect(cwd+f"/market/history/{forge_id}.db")
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
+    tables = [i[0] for i in cur.fetchall()]
+    latest = tables[0]
+    cur.execute(f"""SELECT
+                        buy_data.type_id,
+                        buy_data.buy,
+                        sell_data.sell
+                    FROM (
+                            (SELECT 
+                                type_id, 
+                                SUM(eff_vol)/{volume_day_history} as buy
+                            FROM (
+                                SELECT
+                                    type_id, lowest, average, highest, volume,
+                                    ((average-lowest) / average) * ({latest}.volume / 2) AS eff_vol
+                                FROM {latest} 
+                                WHERE strftime('%s', 'now') - date < 60*60*24*{volume_day_history}
+                            )
+                            GROUP BY type_id) AS buy_data
+                        JOIN
+                            (SELECT 
+                                type_id, 
+                                SUM(eff_vol)/{volume_day_history} as sell
+                            FROM (
+                                SELECT
+                                    type_id, lowest, average, highest, volume,
+                                    ((highest-average) / average) * ({latest}.volume / 2) AS eff_vol
+                                FROM {latest} 
+                                WHERE strftime('%s', 'now') - date < 60*60*24*{volume_day_history}
+                            )
+                            GROUP BY type_id) AS sell_data
+                        ON buy_data.type_id = sell_data.type_id
+                    )
+                    """)
+    forge_volume_data = cur.fetchall()
+    forge_volume = {}
+    for line in forge_volume_data:
+        type_id, buy_volume, sell_volume = line
+        forge_volume[type_id] = {"buy_vol":buy_volume,
+                                  "sell_vol":sell_volume}
+    conn.close()
+
+    # Find arbitrage using the periphery region
+    per_cube_cost = cost_of_dst / 50_000
+    exports = {}
+    imports = {}
+    for type_id in periphery_price:
+        if type_id not in periphery_volume or type_id not in forge_price or type_id not in forge_volume or type_id not in size:
+            continue # No sufficient data
+
+        if translate_typeID_groupID[type_id] not in vetted_groups:
+            continue # Skip unwanted market groups
+
+        # Find it
+        if periphery_price[type_id]["sell_price"] > forge_price[type_id]["buy_price"] * tax_buffer: # Eligible for export
+            effective_volume = min(periphery_volume[type_id]["sell_vol"], forge_volume[type_id]["buy_vol"])
+            profit = (periphery_price[type_id]["sell_price"] - (forge_price[type_id]["buy_price"] * tax_buffer)) * effective_volume
+            profit_per_cube = (profit / size[type_id]) - per_cube_cost
+            exports[type_id] = {"profit":profit,
+                                "profit_per_cube":profit_per_cube,
+                                "trade_volume": effective_volume}
+
+        elif forge_price[type_id]["sell_price"] > periphery_price[type_id]["buy_price"] * tax_buffer: # Eligible for import
+            effective_volume = min(forge_volume[type_id]["sell_vol"], periphery_volume[type_id]["buy_vol"])
+            profit = (forge_price[type_id]["sell_price"] - (periphery_price[type_id]["buy_price"] * tax_buffer)) * effective_volume
+            profit_per_cube = (profit / size[type_id]) - per_cube_cost
+            imports[type_id] = {"profit":profit,
+                                "profit_per_cube":profit_per_cube,
+                                "trade_volume": effective_volume}
+
+        else:
+            continue
+    
+    # Insert into courier db
+    conn = sqlite3.connect(cwd+f"/output/courier.db")
+    cur = conn.cursor()
+    cur.execute(f"CREATE TABLE IF NOT EXISTS courier (is_export int, region int, type_id int, name text, profit float, profit_per_cube float, trade_volume float)")
+    
+    for type_id in exports:
+        if exports[type_id]["profit"] > 0 and exports[type_id]["profit_per_cube"] > 0:
+            cur.execute(f"INSERT INTO courier (is_export, region, type_id, name, profit, profit_per_cube, trade_volume) \
+                        VALUES \
+                        (?, ?, ?, ?, ?, ?, ?)", (1, periphery_region_id, type_id, item_translator[type_id], exports[type_id]["profit"], exports[type_id]["profit_per_cube"], exports[type_id]["trade_volume"]))
+    conn.commit()
+
+    for type_id in imports:
+        if imports[type_id]["profit"] > 0 and imports[type_id]["profit_per_cube"] > 0:
+            cur.execute(f"INSERT INTO courier (is_export, region, type_id, name, profit, profit_per_cube, trade_volume) \
+                        VALUES \
+                        (?, ?, ?, ?, ?, ?, ?)", (0, periphery_region_id, type_id, item_translator[type_id], imports[type_id]["profit"], imports[type_id]["profit_per_cube"], imports[type_id]["trade_volume"]))
+    conn.commit()
+    conn.close()
+
+def make_exports_imports():
+    """
+    Use this, calculates imports and exports for all defined regions.
+    """
+    cwd = os.getcwd()
+    conn = sqlite3.connect(cwd+"/data/location.db")
+    cur = conn.cursor()
+    cur.execute(f"SELECT * FROM k_space_regions")
+    regions = [i[0] for i in cur.fetchall()]
+    conn.close()
+
+    # Clean up
+    conn = sqlite3.connect(cwd+f"/output/courier.db")
+    cur = conn.cursor()
+    cur.execute(f"DROP TABLE IF EXISTS courier")
+    cur.execute("VACUUM")    
+    conn.close()
+
+    for region in regions:
+        regional_imports_exports(region)
+
+def make_ie_readable():
+    """
+    Transforms the data to market quickbar form.
+    """
+    cwd = os.getcwd()
+    translate_location = data_handling.translator_location()
+
+    conn = sqlite3.connect(cwd+f"/output/courier.db")
+    cur = conn.cursor()
+    cur.execute("SELECT DISTINCT region FROM courier")
+    regions = [i[0] for i in cur.fetchall()]
+    
+    for region in regions:
+        pass
+
+make_ie_readable()

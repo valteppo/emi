@@ -14,6 +14,21 @@ def jita_esi_trader(volume_day_history=15, min_eff_vol=0.5, tax_buffer=1.07):
 
     cwd = os.getcwd()
 
+    # Fetch vetted groups
+    conn = sqlite3.connect(os.getcwd()+"/data/item.db")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM vetted_groups")
+    vetted_groups = [i[0] for i in cur.fetchall()]
+    
+    # Link type_id to group
+    cur.execute("SELECT * FROM typeID_group")
+    group_linking_data = cur.fetchall()
+    translate_typeID_groupID = {}
+    for line in group_linking_data:
+        type_id, group_id = line
+        translate_typeID_groupID[type_id] = group_id
+    conn.close()
+
     # Copy orders
     conn = sqlite3.connect(cwd+"/market/orders/10000002.db")
     cur = conn.cursor()
@@ -102,14 +117,14 @@ def jita_esi_trader(volume_day_history=15, min_eff_vol=0.5, tax_buffer=1.07):
             FROM (
                 SELECT
                     type_id, lowest, average, highest, volume,
-                    ((CASE WHEN average-lowest < highest-average THEN average-lowest ELSE highest-average END) / average) * volume AS eff_vol
+                    ((CASE WHEN average-lowest < highest-average THEN average-lowest ELSE highest-average END) / average) * (volume / 2) AS eff_vol
                 FROM volume 
                 WHERE strftime('%s', 'now') - date < 60*60*24*{volume_day_history}
             )
             GROUP BY type_id) AS b
             ON a.type_id = b.type_id)
         GROUP BY a.type_id)
-    WHERE profit > 10000000 AND eff_vol > {min_eff_vol}
+    WHERE profit > 5000000 AND eff_vol > {min_eff_vol}
     GROUP BY type_id
     ORDER BY profit DESC;
     """
@@ -118,12 +133,12 @@ def jita_esi_trader(volume_day_history=15, min_eff_vol=0.5, tax_buffer=1.07):
     results = cur.fetchall()
 
     item_translator = data_handling.translator_items()
-    with open("trade.tsv", "w") as file:
+    with open("/output/jita_station_trade.tsv", "w") as file:
         for item in results:
             type_id, buy_price, sell_price, eff_volume, profit = item
             if type_id in item_translator:
                 item_name = item_translator[type_id]
-                if "SKIN" not in item_name and "Men's" not in item_name and "Women's" not in item_name:
+                if translate_typeID_groupID[type_id] in vetted_groups:
                     file.write(f"{item_name}\t{int(profit):,}\t{eff_volume}\n")
 
 

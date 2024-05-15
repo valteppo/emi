@@ -53,6 +53,10 @@ def id_translator_constructor() -> None:
     Saves k-space regions to:
             /data/location.db
                 table: k_space_regions
+
+    Also saves item sizes to:
+        /data/item.db
+            table: size
     """
     translator_location = {}
     translator_items = {}
@@ -94,10 +98,13 @@ def id_translator_constructor() -> None:
         with openzip.open("sde/fsd/typeIDs.yaml", "r") as raw_yaml:
             type_IDs = yaml.safe_load(raw_yaml)
 
+    size = {}
     for typeID in type_IDs:
         this_typeID = type_IDs[typeID]
         if this_typeID["published"] == True:
             translator_items[typeID] = this_typeID["name"]["en"]
+            if "volume" in this_typeID:
+                size[typeID] = this_typeID["volume"]
 
     # Save items:
     cwd = os.getcwd()
@@ -108,6 +115,14 @@ def id_translator_constructor() -> None:
     for key in translator_items:
         cur.execute("INSERT INTO item_translation (type_id, type_name) VALUES \
                     (?, ?)", (key, translator_items[key]))
+    conn.commit()
+
+    # Save sizes
+    cur.execute("DROP TABLE IF EXISTS size")
+    cur.execute("CREATE TABLE size (type_id int, size float)")
+    for key in size:
+        cur.execute("INSERT INTO size (type_id, size) VALUES \
+                    (?, ?)", (key, size[key]))
     conn.commit()
     conn.close()
 
@@ -170,6 +185,26 @@ def translator_items() -> dict:
         translator[typeID] = item_name
         translator[item_name] = typeID
     return translator
+
+def get_size():
+    """
+    Dictionary gives sizes to items.
+    Returns a dictionary that:
+
+    Given typeID, outputs size in m^3.
+    """
+    size = {}
+    conn = sqlite3.connect(os.getcwd()+"/data/item.db")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM size")
+    data = cur.fetchall()
+    conn.close()
+
+    for line in data:
+        typeID, item_size = line
+        size[typeID] = item_size
+    return size
+
 
 def vetted_groups_construction():
     """
