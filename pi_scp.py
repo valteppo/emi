@@ -33,15 +33,16 @@ def get_jita_trades():
     """
     cwd = os.getcwd()
     subprocess.run(["scp","-r", "user@pi:/home/user/emi/output/jita_station_trade.tsv", cwd+"/output/jita_station_trade.tsv"])
-    with open("/output/jita_station_trade.tsv", "r") as file:
+    with open(cwd+"/output/jita_station_trade.tsv", "r") as file:
         data = file.readlines()[:-1]
     
     quickbar = ""
     count_len = len(str(len(data)))
     count = 0
     current_count_len = len(str(count))
-    zerobuffer = "".join("0"* (count_len - current_count_len))
-    quickbar += f"+ This is the jita station trade list.\n"
+    zerobuffer = "".join("0"* ((count_len - current_count_len)+1))
+    quickbar += f"+ {zerobuffer} This is the jita station trade list.\n"
+    count +=1
     for line in data:
         item, profit, volume = line.strip().split("\t")
         current_count_len = len(str(count))
@@ -49,7 +50,7 @@ def get_jita_trades():
         quickbar += f"+ {zerobuffer}{count} {item} [{profit} ISK]\n- {item} [{volume}]\n"
         count += 1
 
-    with open("/output/jita_station_trade_quickbar.txt", "w") as file:
+    with open(cwd+"/output/jita_station_trade_quickbar.txt", "w") as file:
         file.write(quickbar)
     pyperclip.copy(quickbar)
 

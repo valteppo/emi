@@ -283,6 +283,61 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff
     conn.commit()
     conn.close()
 
+def make_ie_readable():
+    """
+    Transforms the data to market quickbar form.
+    """
+    cwd = os.getcwd()
+    translate_location = data_handling.translator_location()
+
+    conn = sqlite3.connect(cwd+f"/output/courier.db")
+    cur = conn.cursor()
+    cur.execute("SELECT DISTINCT region FROM courier")
+    regions = [i[0] for i in cur.fetchall()]
+    
+    for region in regions:
+        # Export
+        cur.execute(f"SELECT * FROM courier WHERE region = {region} AND is_export = 1 ORDER BY profit DESC")
+        data = cur.fetchall()
+
+        quickbar = ""
+        count_len = len(str(len(data)))
+        count = 0
+        current_count_len = len(str(count))
+        zerobuffer = "".join("0"* ((count_len - current_count_len)+1))
+        quickbar += f"+ {zerobuffer} {translate_location[region]} region EXPORT. Buy in The Forge. Ship towards {translate_location[region]}.\n"
+        count +=1
+        for line in data:
+            is_export, this_region, type_id, name, profit, profit_per_cube, trade_volume = line
+            current_count_len = len(str(count))
+            zerobuffer = "".join("0"* (count_len - current_count_len))
+            quickbar += f"+ {zerobuffer}{count} {name} [{int(profit):,} ISK] [{int(profit_per_cube):,} ISK/m3]\n- {name} [{trade_volume}]\n"
+            count += 1
+
+        with open(cwd+f"/output/{translate_location[region]} export.txt", "w") as file:
+            file.write(quickbar)
+
+        # Import
+        cur.execute(f"SELECT * FROM courier WHERE region = {region} AND is_export = 0 ORDER BY profit DESC")
+        data = cur.fetchall()
+
+        quickbar = ""
+        count_len = len(str(len(data)))
+        count = 0
+        current_count_len = len(str(count))
+        zerobuffer = "".join("0"* ((count_len - current_count_len)+1))
+        quickbar += f"+ {zerobuffer} {translate_location[region]} region IMPORT. Buy in {translate_location[region]}. Ship towards The Forge.\n"
+        count +=1
+        for line in data:
+            is_export, this_region, type_id, name, profit, profit_per_cube, trade_volume = line
+            current_count_len = len(str(count))
+            zerobuffer = "".join("0"* (count_len - current_count_len))
+            quickbar += f"+ {zerobuffer}{count} {name} [{int(profit):,} ISK] [{int(profit_per_cube):,} ISK/m3]\n- {name} [{trade_volume}]\n"
+            count += 1
+
+        with open(cwd+f"/output/{translate_location[region]} import.txt", "w") as file:
+            file.write(quickbar)
+
 def make_exports_imports():
     """
     Use this, calculates imports and exports for all defined regions.
@@ -302,21 +357,7 @@ def make_exports_imports():
     conn.close()
 
     for region in regions:
-        regional_imports_exports(region)
+        regional_imports_exports(region) # Calculations
+    make_ie_readable() # Make market quickbar
 
-def make_ie_readable():
-    """
-    Transforms the data to market quickbar form.
-    """
-    cwd = os.getcwd()
-    translate_location = data_handling.translator_location()
-
-    conn = sqlite3.connect(cwd+f"/output/courier.db")
-    cur = conn.cursor()
-    cur.execute("SELECT DISTINCT region FROM courier")
-    regions = [i[0] for i in cur.fetchall()]
-    
-    for region in regions:
-        pass
-
-make_ie_readable()
+make_exports_imports() # keep here, used in rasp trade generation
