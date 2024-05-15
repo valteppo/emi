@@ -27,12 +27,11 @@ def get_orders_volumes():
     for db in os.listdir(cwd+"/transfer/market/orders"):
         os.replace(cwd+"\\transfer\\market\\orders\\"+db , cwd+"\\market\\orders\\"+db)
 
-def get_jita_trades():
+def get_trades():
     """
     Download the generated trade opportunities from raspberry
     """
     cwd = os.getcwd()
     subprocess.run(["scp","-r", "user@pi:/home/user/emi/output/", cwd])
 
-
-get_jita_trades()
+get_trades()
