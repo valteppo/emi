@@ -3,68 +3,8 @@ Find items worth courier contracting to and from. Destination/origin Jita.
 """
 import os
 import sqlite3
-
 import data_handling
-
-def determine_region_info(region_id):
-    """
-    Returns tradehubs and shipping costs.
-    Returns dictionary if successful, None if not.
-    """
-    hubs = {}
-    if region_id == 10000043: # Domain
-        hubs["primary_system"] = 30002187 # Amarr
-        hubs["secondary_system"] = 30003491 # Ashab
-        hubs["cost_of_dst"] = 33_000_000
-        return hubs
-    
-    if region_id == 10000032: # Sinq Laison
-        hubs["primary_system"] = 30002659 # Dodixie
-        hubs["secondary_system"] = 30002661 # Botane
-        hubs["cost_of_dst"] = 15_000_000
-        return hubs
-    
-    if region_id == 10000042: # Metropolis
-        hubs["primary_system"] = 30002053 # Hek
-        hubs["secondary_system"] = 30002068 # Nakugard, some neighbour
-        hubs["cost_of_dst"] = 20_000_000
-        return hubs
-    
-    if region_id == 10000030: # Heimatar
-        hubs["primary_system"] = 30002543 # Eystur
-        hubs["secondary_system"] = 30002568 # Onga, some neighbour
-        hubs["cost_of_dst"] = 20_000_000
-        return hubs
-    
-    if region_id == 10000048: # Placid
-        hubs["primary_system"] = 30003794 # Stacmon
-        hubs["secondary_system"] = 30003794 # Stacmon, replicate
-        hubs["cost_of_dst"] = 20_000_000
-        return hubs
-    
-    if region_id == 10000033: # The Citadel
-        hubs["primary_system"] = 30002768 # Uedama
-        hubs["secondary_system"] = 30002764 # Hatakani
-        hubs["cost_of_dst"] = 15_000_000
-        return hubs
-    
-    if region_id == 10000068: # Verge Vendor
-        hubs["primary_system"] = 30005304 # Alentene
-        hubs["secondary_system"] = 30005305 # Cistuvaert
-        hubs["cost_of_dst"] = 16_000_000
-        return hubs
-    
-    if region_id == 10000069: # Black Rise
-        hubs["primary_system"] = 30045324 # Onnamon
-        hubs["secondary_system"] = 30045324 # Onnamon, replicate
-        hubs["cost_of_dst"] = 13_000_000
-        return hubs
-    
-    else:
-        return None
-    
-    
-
+ 
 def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff_vol=0.5, tax_buffer=1.07):
     """
     Major tradehub in another region <--> Jita
