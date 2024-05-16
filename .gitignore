@@ -2,8 +2,12 @@
 /inactive/
 /output/
 /data/sde.zip
+/data/*.bz2
+/killmails/
 /data/checksum
 /transfer/
 /__pycache__/
 trade.tsv
-
+*.json
+*.bz2
+data/killmails-2024-01-08.tar.bz2
