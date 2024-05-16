@@ -2,8 +2,8 @@
 Get market data from raspberry pi.
 """
 import os
-import subprocess
-import pyperclip
+from paramiko import SSHClient
+from scp import SCPClient
 
 def get_orders_volumes():
     """
@@ -19,8 +19,15 @@ def get_orders_volumes():
     old_ord = os.listdir(cwd+"/market/orders")
     for ord in old_ord:
         os.remove(cwd+"\\market\\orders\\"+ord)
+    
     # Load to transfer folder
-    subprocess.run(["scp","-r", "user@pi:/home/user/emi/transfer", cwd])
+    ssh = SSHClient()
+    ssh.load_system_host_keys()
+    ssh.connect(hostname='pi', username='user', password='user')
+    cwd = os.getcwd()
+    with SCPClient(ssh.get_transport()) as scp:
+        scp.get(recursive=True, remote_path="/home/user/emi/transfer", local_path=cwd)
+
     # Relocate if ok
     for db in os.listdir(cwd+"/transfer/market/history"):
         os.replace(cwd+"\\transfer\\market\\history\\"+db , cwd+"\\market\\history\\"+db)
@@ -28,11 +35,13 @@ def get_orders_volumes():
         os.replace(cwd+"\\transfer\\market\\orders\\"+db , cwd+"\\market\\orders\\"+db)
 
 def get_trades():
-    """
-    Download the generated trade opportunities from raspberry
-    """
+    ssh = SSHClient()
+    ssh.load_system_host_keys()
+    ssh.connect(hostname='pi', username='user', password='user')
     cwd = os.getcwd()
-    subprocess.run(["scp","-r", "user@pi:/home/user/emi/output/", cwd])
 
-#get_trades()
+    with SCPClient(ssh.get_transport()) as scp:
+        scp.get(recursive=True, remote_path="/home/user/emi/output/", local_path=cwd)
+
+get_trades()
 get_orders_volumes()
