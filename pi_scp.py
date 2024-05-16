@@ -34,4 +34,5 @@ def get_trades():
     cwd = os.getcwd()
     subprocess.run(["scp","-r", "user@pi:/home/user/emi/output/", cwd])
 
-get_trades()
+#get_trades()
+get_orders_volumes()

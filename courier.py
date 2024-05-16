@@ -70,18 +70,14 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff
     Major tradehub in another region <--> Jita
     Minimum effective volume is not active.
     """
-
-    region_info = determine_region_info(periphery_region_id)
-    if region_info == None:
-        return # no trade info determined for this region
-    
-    periphery_primary_hub = region_info["primary_system"]
-    periphery_secondary_hub = region_info["secondary_system"]
-    cost_of_dst = region_info["cost_of_dst"]
+    cost_of_dst = 30_000_000
 
     jita_id = 30000142
     perimeter_id = 30000144
     forge_id = 10000002
+
+    if periphery_region_id == forge_id:
+        return
 
     size = data_handling.get_size()
     item_translator = data_handling.translator_items()
@@ -102,12 +98,24 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff
         translate_typeID_groupID[type_id] = group_id
     conn.close()
 
-    # Get periphery prices
+    
     conn = sqlite3.connect(cwd+f"/market/orders/{periphery_region_id}.db")
     cur = conn.cursor()
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
     tables = [i[0] for i in cur.fetchall()]
     latest = tables[0]
+
+    # Get periphery main hubs
+    cur.execute(f"""SELECT system_id, COUNT(system_id) as order_count FROM {latest} WHERE duration < 91 GROUP BY system_id ORDER BY order_count DESC""")
+    system_order_ranking = cur.fetchall()
+    if len(system_order_ranking) < 2:
+        return # No two hubs
+    
+    periphery_primary_hub = system_order_ranking[0][0]
+    periphery_secondary_hub = system_order_ranking[1][0]
+
+
+    # Get periphery prices
     cur.execute(f"""SELECT buy.type_id as type_id, buy.buy_price as buy_price, sell.sell_price as sell_price FROM 
                         (SELECT type_id, MAX(price) AS buy_price FROM {latest} WHERE (system_id = {periphery_primary_hub} OR system_id = {periphery_secondary_hub}) AND is_buy_order = 1 GROUP BY type_id) AS buy
                     JOIN 
@@ -281,6 +289,13 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff
                         VALUES \
                         (?, ?, ?, ?, ?, ?, ?)", (0, periphery_region_id, type_id, item_translator[type_id], imports[type_id]["profit"], imports[type_id]["profit_per_cube"], imports[type_id]["trade_volume"]))
     conn.commit()
+
+    # Mark the hubs
+    cur.execute(f"CREATE TABLE IF NOT EXISTS hubs (region int UNIQUE, primary_hub int, secondary_hub int)")
+    cur.execute(f"""INSERT INTO hubs (region, primary_hub, secondary_hub) VALUES (?, ?, ?) 
+                    ON CONFLICT (region) DO UPDATE SET primary_hub = ?, secondary_hub = ? """, 
+                    (periphery_region_id, periphery_primary_hub, periphery_secondary_hub, periphery_primary_hub, periphery_secondary_hub))
+    conn.commit()
     conn.close()
 
 def make_ie_readable():
@@ -296,6 +311,13 @@ def make_ie_readable():
     regions = [i[0] for i in cur.fetchall()]
     
     for region in regions:
+        if region == 10000002:
+            continue # Forge itself
+
+        cur.execute(f"""SELECT primary_hub, secondary_hub FROM hubs WHERE region = {region}""")
+        hubs = cur.fetchall()
+        main_hub, secondary_hub = hubs[0]
+
         # Export
         cur.execute(f"SELECT * FROM courier WHERE region = {region} AND is_export = 1 ORDER BY profit DESC")
         data = cur.fetchall()
@@ -305,7 +327,7 @@ def make_ie_readable():
         count = 0
         current_count_len = len(str(count))
         zerobuffer = "".join("0"* ((count_len - current_count_len)+1))
-        quickbar += f"+ {zerobuffer} {translate_location[region]} region EXPORT. Buy in The Forge. Ship towards {translate_location[region]}.\n"
+        quickbar += f"+ {zerobuffer} {translate_location[region]} region EXPORT. Buy in Jita. Ship towards {translate_location[main_hub]}.\n"
         count +=1
         for line in data:
             is_export, this_region, type_id, name, profit, profit_per_cube, trade_volume = line
@@ -326,7 +348,7 @@ def make_ie_readable():
         count = 0
         current_count_len = len(str(count))
         zerobuffer = "".join("0"* ((count_len - current_count_len)+1))
-        quickbar += f"+ {zerobuffer} {translate_location[region]} region IMPORT. Buy in {translate_location[region]}. Ship towards The Forge.\n"
+        quickbar += f"+ {zerobuffer} {translate_location[region]} region IMPORT. Buy in {translate_location[main_hub]}. Ship towards Jita.\n"
         count +=1
         for line in data:
             is_export, this_region, type_id, name, profit, profit_per_cube, trade_volume = line
@@ -353,6 +375,7 @@ def make_exports_imports():
     conn = sqlite3.connect(cwd+f"/output/courier.db")
     cur = conn.cursor()
     cur.execute(f"DROP TABLE IF EXISTS courier")
+    cur.execute(f"DROP TABLE IF EXISTS hubs")
     cur.execute("VACUUM")    
     conn.close()
 
