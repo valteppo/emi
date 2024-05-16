@@ -35,7 +35,7 @@ def check_folders_exist():
         "transfer":["orders", "volume"],
         "market":["orders", "product", "history", "trade"],
         "data":None,
-        "output":None
+        "output":["station", "courier", "expedition"]
     }
     for directory in directories:
         if not os.path.isdir(directory):

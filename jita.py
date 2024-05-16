@@ -151,8 +151,7 @@ def jita_esi_trader(volume_day_history=15, min_eff_vol=0.5, tax_buffer=1.07):
                 quickbar += f"+ {zerobuffer}{count} {item_translator[type_id]} [{int(profit):,} ISK]\n- {item_translator[type_id]} [{eff_vol}]\n"
                 count += 1
 
-    with open(cwd+"/output/Jita_station_trade.txt", "w") as file:
+    with open(cwd+"/output/station/Jita_station_trade.txt", "w") as file:
         file.write(quickbar)
-
 
 jita_esi_trader() # keep here, used in rasp trade generation

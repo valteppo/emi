@@ -212,7 +212,7 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff
             continue
     
     # Insert into courier db
-    conn = sqlite3.connect(cwd+f"/output/courier.db")
+    conn = sqlite3.connect(cwd+f"/output/courier/courier.db")
     cur = conn.cursor()
     cur.execute(f"CREATE TABLE IF NOT EXISTS courier (is_export int, region int, type_id int, name text, profit float, profit_per_cube float, trade_volume float)")
     
@@ -245,7 +245,7 @@ def make_ie_readable():
     cwd = os.getcwd()
     translate_location = data_handling.translator_location()
 
-    conn = sqlite3.connect(cwd+f"/output/courier.db")
+    conn = sqlite3.connect(cwd+f"/output/courier/courier.db")
     cur = conn.cursor()
     cur.execute("SELECT DISTINCT region FROM courier")
     regions = [i[0] for i in cur.fetchall()]
@@ -276,7 +276,7 @@ def make_ie_readable():
             quickbar += f"+ {zerobuffer}{count} {name} [{int(profit):,} ISK] [{int(profit_per_cube):,} ISK/m3]\n- {name} [{trade_volume}]\n"
             count += 1
 
-        with open(cwd+f"/output/{translate_location[region]} export.txt", "w") as file:
+        with open(cwd+f"/output/courier/{translate_location[region]} export.txt", "w") as file:
             file.write(quickbar)
 
         # Import
@@ -297,7 +297,7 @@ def make_ie_readable():
             quickbar += f"+ {zerobuffer}{count} {name} [{int(profit):,} ISK] [{int(profit_per_cube):,} ISK/m3]\n- {name} [{trade_volume}]\n"
             count += 1
 
-        with open(cwd+f"/output/{translate_location[region]} import.txt", "w") as file:
+        with open(cwd+f"/output/courier/{translate_location[region]} import.txt", "w") as file:
             file.write(quickbar)
 
 def make_exports_imports():
@@ -312,7 +312,7 @@ def make_exports_imports():
     conn.close()
 
     # Clean up
-    conn = sqlite3.connect(cwd+f"/output/courier.db")
+    conn = sqlite3.connect(cwd+f"/output/courier/courier.db")
     cur = conn.cursor()
     cur.execute(f"DROP TABLE IF EXISTS courier")
     cur.execute(f"DROP TABLE IF EXISTS hubs")
