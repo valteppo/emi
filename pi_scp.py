@@ -43,5 +43,5 @@ def get_trades():
     with SCPClient(ssh.get_transport()) as scp:
         scp.get(recursive=True, remote_path="/home/user/emi/output/", local_path=cwd)
 
-get_trades()
+#get_trades()
 get_orders_volumes()
