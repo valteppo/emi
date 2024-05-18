@@ -18,26 +18,14 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff
 
     if periphery_region_id == forge_id:
         return
-
-    size = data_handling.get_size()
-    item_translator = data_handling.translator_items()
+    
     cwd = os.getcwd()
 
-    # Fetch vetted groups
-    conn = sqlite3.connect(os.getcwd()+"/data/item.db")
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM vetted_groups")
-    vetted_groups = [i[0] for i in cur.fetchall()]
-
-    # Link type_id to group
-    cur.execute("SELECT * FROM typeID_group")
-    group_linking_data = cur.fetchall()
-    translate_typeID_groupID = {}
-    for line in group_linking_data:
-        type_id, group_id = line
-        translate_typeID_groupID[type_id] = group_id
-    conn.close()
-
+    # Filters and translators
+    size = data_handling.get_size()
+    item_translator = data_handling.translator_items()
+    vetted_groups = data_handling.get_vetted_groups()
+    translate_typeID_groupID = data_handling.typeID_groupID_translator()
     
     conn = sqlite3.connect(cwd+f"/market/orders/{periphery_region_id}.db")
     cur = conn.cursor()
@@ -305,11 +293,7 @@ def make_exports_imports():
     Use this, calculates imports and exports for all defined regions.
     """
     cwd = os.getcwd()
-    conn = sqlite3.connect(cwd+"/data/location.db")
-    cur = conn.cursor()
-    cur.execute(f"SELECT * FROM k_space_regions")
-    regions = [i[0] for i in cur.fetchall()]
-    conn.close()
+    regions = data_handling.get_k_space_regions()
 
     # Clean up
     conn = sqlite3.connect(cwd+f"/output/courier/courier.db")

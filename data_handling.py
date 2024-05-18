@@ -420,3 +420,40 @@ def history_clean_up():
                 cur.execute(f"DROP TABLE {tables[i]}")
         cur.execute("VACUUM")
         conn.close()
+
+def get_k_space_regions():
+    """
+    Returns the list of k-space regions.
+    """
+    conn = sqlite3.connect(os.getcwd()+"/data/location.db")
+    cur = conn.cursor()
+    cur.execute(f"SELECT * FROM k_space_regions")
+    k_space_regions = [i[0] for i in cur.fetchall()]
+    conn.close()
+    return k_space_regions
+
+def get_vetted_groups():
+    """
+    Returns a list of items ok for trading.
+    """
+    conn = sqlite3.connect(os.getcwd()+"/data/item.db")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM vetted_groups")
+    vetted_groups = [i[0] for i in cur.fetchall()]
+    conn.close()
+    return vetted_groups
+
+def typeID_groupID_translator():
+    """
+    Returns a dict that translates type_id to group_id.
+    """
+    conn = sqlite3.connect(os.getcwd()+"/data/item.db")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM typeID_group")
+    group_linking_data = cur.fetchall()
+    translate_typeID_groupID = {}
+    for line in group_linking_data:
+        type_id, group_id = line
+        translate_typeID_groupID[type_id] = group_id
+    conn.close()
+    return translate_typeID_groupID

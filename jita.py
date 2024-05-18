@@ -14,20 +14,10 @@ def jita_esi_trader(volume_day_history=15, min_eff_vol=10, tax_buffer=1.07):
 
     cwd = os.getcwd()
 
-    # Fetch vetted groups
-    conn = sqlite3.connect(os.getcwd()+"/data/item.db")
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM vetted_groups")
-    vetted_groups = [i[0] for i in cur.fetchall()]
-    
-    # Link type_id to group
-    cur.execute("SELECT * FROM typeID_group")
-    group_linking_data = cur.fetchall()
-    translate_typeID_groupID = {}
-    for line in group_linking_data:
-        type_id, group_id = line
-        translate_typeID_groupID[type_id] = group_id
-    conn.close()
+    # Filters and translators
+    vetted_groups = data_handling.get_vetted_groups()
+    translate_typeID_groupID = data_handling.typeID_groupID_translator()
+    item_translator = data_handling.translator_items()
 
     # Copy orders
     conn = sqlite3.connect(cwd+"/market/orders/10000002.db")
@@ -132,8 +122,6 @@ def jita_esi_trader(volume_day_history=15, min_eff_vol=10, tax_buffer=1.07):
     cur.execute(cmd)
     data = cur.fetchall()
     conn.close()
-
-    item_translator = data_handling.translator_items()
 
     quickbar = ""
     count_len = len(str(len(data)))
