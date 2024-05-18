@@ -117,6 +117,13 @@ def make_ie_readable():
     cur = conn.cursor()
     cur.execute("SELECT DISTINCT region FROM courier")
     regions = [i[0] for i in cur.fetchall()]
+
+    # Clean up
+    files = os.listdir(cwd+f"/output/courier/")
+    for file in files:
+        tokens = file.split(".")
+        if tokens[-1] == "txt":
+            os.remove(cwd+f"/output/courier/{file}")
     
     for region in regions:
         if region == 10000002:
@@ -131,20 +138,15 @@ def make_ie_readable():
         data = cur.fetchall()
 
         quickbar = ""
-        count_len = len(str(len(data)))
-        count = 0
-        current_count_len = len(str(count))
-        zerobuffer = "".join("0"* ((count_len - current_count_len)+1))
-        quickbar += f"+ {zerobuffer} {translate_location[region]} region EXPORT. Buy in Jita. Ship to {translate_location[main_hub]} cost [{int(cost_of_dst):,}].\n"
-        count +=1
+        count = 1
         for line in data:
             is_export, this_region, type_id, name, profit, profit_per_cube, trade_volume = line
-            current_count_len = len(str(count))
-            zerobuffer = "".join("0"* (count_len - current_count_len))
-            quickbar += f"+ {zerobuffer}{count} {name} [{int(profit):,} ISK] [{int(profit_per_cube):,} ISK/m3]\n- {name} [{trade_volume}]\n"
+            if count > 100:
+                break
+            quickbar += f"{name}\t{max(int(trade_volume),1)}\n"
             count += 1
 
-        with open(cwd+f"/output/courier/{translate_location[region]} export.txt", "w") as file:
+        with open(cwd+f"/output/courier/EXPORT {translate_location[region]} Jita to {translate_location[main_hub]}.txt", "w") as file:
             file.write(quickbar)
 
         # Import
@@ -152,20 +154,15 @@ def make_ie_readable():
         data = cur.fetchall()
 
         quickbar = ""
-        count_len = len(str(len(data)))
-        count = 0
-        current_count_len = len(str(count))
-        zerobuffer = "".join("0"* ((count_len - current_count_len)+1))
-        quickbar += f"+ {zerobuffer} {translate_location[region]} region IMPORT. Buy in {translate_location[main_hub]} cost [{int(cost_of_dst):,}]. Ship towards Jita.\n"
-        count +=1
+        count = 1
         for line in data:
             is_export, this_region, type_id, name, profit, profit_per_cube, trade_volume = line
-            current_count_len = len(str(count))
-            zerobuffer = "".join("0"* (count_len - current_count_len))
-            quickbar += f"+ {zerobuffer}{count} {name} [{int(profit):,} ISK] [{int(profit_per_cube):,} ISK/m3]\n- {name} [{trade_volume}]\n"
+            if count > 100:
+                break
+            quickbar += f"{name}\t{max(int(trade_volume),1)}\n"
             count += 1
 
-        with open(cwd+f"/output/courier/{translate_location[region]} import.txt", "w") as file:
+        with open(cwd+f"/output/courier/IMPORT {translate_location[region]} {translate_location[main_hub]} to Jita.txt", "w") as file:
             file.write(quickbar)
 
 def make_exports_imports():

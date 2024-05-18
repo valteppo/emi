@@ -153,16 +153,17 @@ def summarize_regions(minimum_volume = 0.2):
         
         # Region prices & hubs
         region_prices = data_handling.get_region_prices(region)
+        region_volume = data_handling.get_region_volumes(region)
         region_hubs = data_handling.get_region_main_hubs(region)
         if len(region_hubs) < 2:
             continue
 
         for type_id in summaries[region]:
-            if type_id in jita_prices and type_id in region_prices:
+            if type_id in jita_prices and type_id in region_prices and type_id in region_volume:
                 # Check if it's worth buying directly from jita sell orders and ship to target region
                 sell_price_difference = region_prices[type_id]["sell"] - jita_prices[type_id]["sell"] 
                 cur.execute("INSERT INTO summary (region_id, type_id, volume, total_value) \
-                            VALUES (?, ?, ?, ?)", (region, type_id, summaries[region][type_id] / day, ((summaries[region][type_id] / day) * sell_price_difference)))
+                            VALUES (?, ?, ?, ?)", (region, type_id, summaries[region][type_id] / day, (region_volume[type_id]["sell_vol"] * sell_price_difference)))
         conn.commit()
     
         # Query to form output
@@ -172,23 +173,19 @@ def summarize_regions(minimum_volume = 0.2):
             continue
 
         quickbar = ""
-        count_len = len(str(len(region_summary_data)))
-        count = 0
-        current_count_len = len(str(count))
-        zerobuffer = "".join("0"* ((count_len - current_count_len)+1))
-        quickbar += f"+ {zerobuffer} This is EXPEDITION list. Buy from sell-orders in Jita, ship towards {location_translator[region_hubs[0]]}, {location_translator[region_hubs[1]]}.\n"
-        count +=1
+        n = 1
         for line in region_summary_data:
             type_id, volume, total_value = line
-            if type_id in item_translator:
+            if type_id in item_translator and total_value > 1_000_000:
                 if translate_typeID_groupID[type_id] in vetted_groups:
-                    current_count_len = len(str(count))
-                    zerobuffer = "".join("0"* (count_len - current_count_len))
-                    quickbar += f"+ {zerobuffer}{count} {item_translator[type_id]} [{int(total_value):,} ISK]\n- {item_translator[type_id]} [{volume}]\n"
-                    count += 1
+                    if n > 100:
+                        break
+                    quickbar += f"{item_translator[type_id]}\t{max(int(volume), 1)}\n"
+                    n += 1
         
-        with open(cwd+f"/output/expedition/{location_translator[region]} expedition.txt", "w") as file:
-            file.write(quickbar)
+        if len(quickbar.split("\n")) > 5:
+            with open(cwd+f"/output/expedition/{location_translator[region]} expedition multibuy.txt", "w") as file:
+                file.write(quickbar)
     conn.close()
 
 def refresh_n_days(n, m=1):
