@@ -7,6 +7,7 @@ import urllib.request
 import sqlite3
 import zipfile
 import yaml
+import requests
 import json
 
 def maintain_sde()-> None:
@@ -563,3 +564,41 @@ def get_region_volumes(region_id, volume_day_history=15):
                             "sell_vol":sell_volume}
     conn.close()
     return volume
+
+def get_route(origin_system_id, destination_system_id, safest=True):
+    """
+    Uses esi database to get route. Saves to route to database for future fast fetching.
+    Returns list of systems in route, len of route is len(systems)-1.
+    """
+    if safest:
+        safe = 1
+    else:
+        safe = 0
+
+    cwd = os.getcwd()
+    conn = sqlite3.connect(cwd+f"/data/route.db")
+    cur = conn.cursor()
+    cur.execute("CREATE TABLE IF NOT EXISTS route (origin_id int, destination_id int, safest int, route_systems text)")
+    cur.execute(f"SELECT route_systems FROM route WHERE origin_id = {origin_system_id} AND destination_id = {destination_system_id} AND safest = {safe}")
+    sql_route = cur.fetchall()
+    
+    if len(sql_route) == 0:
+        url = f"https://esi.evetech.net/latest/route/{origin_system_id}/{destination_system_id}/?datasource=tranquility"
+        if safest:
+            url += "&flag=secure"
+        headers = {"user-agent":"IG char: Great Artista"}
+        response = requests.get(url=url, headers=headers)
+        if response.status_code == 200:
+            result = response.json()
+            res_str = ",".join([str(i) for i in result])
+            cur.execute("INSERT INTO route (origin_id, destination_id, safest, route_systems) \
+                         VALUES \
+                        (?, ?, ?, ?)", (origin_system_id, destination_system_id, safe, res_str))
+            conn.commit()
+            conn.close()
+            return result
+    else:
+        result = sql_route[0][0].split(",")
+        conn.close()
+        return [int(i) for i in result]
+

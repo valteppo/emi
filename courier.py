@@ -10,8 +10,8 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff
     Major tradehub in another region <--> Jita
     Minimum effective volume is not active.
     """
-    cost_of_dst = 30_000_000
     forge_id = 10000002
+    jita_id = 30000142
 
     if periphery_region_id == forge_id:
         return
@@ -30,6 +30,15 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff
         return
     periphery_primary_hub = system_order_ranking[0]
     periphery_secondary_hub = system_order_ranking[1]
+
+    # Route
+    route_systems_primary = data_handling.get_route(jita_id, periphery_primary_hub)
+    if route_systems_primary == None:
+        return
+    route_lenght_primary = len(route_systems_primary)-1
+    
+    # Cost of dst
+    cost_of_dst = 6_000_000 + (route_lenght_primary * 473_000)
 
     # Price
     periphery_price = data_handling.get_region_prices(periphery_region_id)
@@ -90,10 +99,10 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff
     conn.commit()
 
     # Mark the hubs
-    cur.execute(f"CREATE TABLE IF NOT EXISTS hubs (region int UNIQUE, primary_hub int, secondary_hub int)")
-    cur.execute(f"""INSERT INTO hubs (region, primary_hub, secondary_hub) VALUES (?, ?, ?) 
-                    ON CONFLICT (region) DO UPDATE SET primary_hub = ?, secondary_hub = ? """, 
-                    (periphery_region_id, periphery_primary_hub, periphery_secondary_hub, periphery_primary_hub, periphery_secondary_hub))
+    cur.execute(f"CREATE TABLE IF NOT EXISTS hubs (region int UNIQUE, primary_hub int, secondary_hub int, hauling_cost float)")
+    cur.execute(f"""INSERT INTO hubs (region, primary_hub, secondary_hub, hauling_cost) VALUES (?, ?, ?, ?) 
+                    ON CONFLICT (region) DO UPDATE SET primary_hub = ?, secondary_hub = ?, hauling_cost = ? """, 
+                    (periphery_region_id, periphery_primary_hub, periphery_secondary_hub, cost_of_dst, periphery_primary_hub, periphery_secondary_hub, cost_of_dst))
     conn.commit()
     conn.close()
 
@@ -113,9 +122,9 @@ def make_ie_readable():
         if region == 10000002:
             continue # Forge itself
 
-        cur.execute(f"""SELECT primary_hub, secondary_hub FROM hubs WHERE region = {region}""")
+        cur.execute(f"""SELECT primary_hub, hauling_cost FROM hubs WHERE region = {region}""")
         hubs = cur.fetchall()
-        main_hub, secondary_hub = hubs[0]
+        main_hub, cost_of_dst = hubs[0]
 
         # Export
         cur.execute(f"SELECT * FROM courier WHERE region = {region} AND is_export = 1 ORDER BY profit DESC")
@@ -126,7 +135,7 @@ def make_ie_readable():
         count = 0
         current_count_len = len(str(count))
         zerobuffer = "".join("0"* ((count_len - current_count_len)+1))
-        quickbar += f"+ {zerobuffer} {translate_location[region]} region EXPORT. Buy in Jita. Ship towards {translate_location[main_hub]}.\n"
+        quickbar += f"+ {zerobuffer} {translate_location[region]} region EXPORT. Buy in Jita. Ship to {translate_location[main_hub]} cost [{int(cost_of_dst):,}].\n"
         count +=1
         for line in data:
             is_export, this_region, type_id, name, profit, profit_per_cube, trade_volume = line
@@ -147,7 +156,7 @@ def make_ie_readable():
         count = 0
         current_count_len = len(str(count))
         zerobuffer = "".join("0"* ((count_len - current_count_len)+1))
-        quickbar += f"+ {zerobuffer} {translate_location[region]} region IMPORT. Buy in {translate_location[main_hub]}. Ship towards Jita.\n"
+        quickbar += f"+ {zerobuffer} {translate_location[region]} region IMPORT. Buy in {translate_location[main_hub]} cost [{int(cost_of_dst):,}]. Ship towards Jita.\n"
         count +=1
         for line in data:
             is_export, this_region, type_id, name, profit, profit_per_cube, trade_volume = line
