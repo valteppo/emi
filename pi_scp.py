@@ -44,4 +44,4 @@ def get_trades():
         scp.get(recursive=True, remote_path="/home/user/emi/output/", local_path=cwd)
 
 get_trades()
-#get_orders_volumes()
+get_orders_volumes()

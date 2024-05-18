@@ -11,9 +11,6 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff
     Minimum effective volume is not active.
     """
     cost_of_dst = 30_000_000
-
-    jita_id = 30000142
-    perimeter_id = 30000144
     forge_id = 10000002
 
     if periphery_region_id == forge_id:
@@ -27,146 +24,20 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff
     vetted_groups = data_handling.get_vetted_groups()
     translate_typeID_groupID = data_handling.typeID_groupID_translator()
     
-    conn = sqlite3.connect(cwd+f"/market/orders/{periphery_region_id}.db")
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
-    tables = [i[0] for i in cur.fetchall()]
-    latest = tables[0]
-
-    # Get periphery main hubs
-    cur.execute(f"""SELECT system_id, COUNT(system_id) as order_count FROM {latest} WHERE duration < 91 GROUP BY system_id ORDER BY order_count DESC""")
-    system_order_ranking = cur.fetchall()
+    # Hubs
+    system_order_ranking = data_handling.get_region_main_hubs(periphery_region_id)
     if len(system_order_ranking) < 2:
-        return # No two hubs
+        return
+    periphery_primary_hub = system_order_ranking[0]
+    periphery_secondary_hub = system_order_ranking[1]
+
+    # Price
+    periphery_price = data_handling.get_region_prices(periphery_region_id)
+    forge_price = data_handling.get_region_prices(forge_id)
     
-    periphery_primary_hub = system_order_ranking[0][0]
-    periphery_secondary_hub = system_order_ranking[1][0]
-
-
-    # Get periphery prices
-    cur.execute(f"""SELECT buy.type_id as type_id, buy.buy_price as buy_price, sell.sell_price as sell_price FROM 
-                        (SELECT type_id, MAX(price) AS buy_price FROM {latest} WHERE (system_id = {periphery_primary_hub} OR system_id = {periphery_secondary_hub}) AND is_buy_order = 1 GROUP BY type_id) AS buy
-                    JOIN 
-                        (SELECT type_id, MIN(price) AS sell_price FROM {latest} WHERE (system_id = {periphery_primary_hub} OR system_id = {periphery_secondary_hub}) AND is_buy_order = 0 GROUP BY type_id) AS sell
-                    ON buy.type_id = sell.type_id 
-                    GROUP BY buy.type_id;""")
-    periphery_price_data = cur.fetchall()
-    periphery_price = {}
-    for line in periphery_price_data:
-        type_id, buy_price, sell_price = line
-        periphery_price[type_id] = {"buy_price":buy_price,
-                                "sell_price":sell_price}
-    conn.close()
-
-    # Get Forge prices
-    conn = sqlite3.connect(cwd+f"/market/orders/{forge_id}.db")
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
-    tables = [i[0] for i in cur.fetchall()]
-    latest = tables[0]
-    cur.execute(f"""SELECT buy.type_id as type_id, buy.buy_price as buy_price, sell.sell_price as sell_price FROM 
-                        (SELECT type_id, MAX(price) AS buy_price FROM {latest} WHERE (system_id = {jita_id} OR system_id = {perimeter_id}) AND is_buy_order = 1 GROUP BY type_id) AS buy
-                    JOIN 
-                        (SELECT type_id, MIN(price) AS sell_price FROM {latest} WHERE (system_id = {jita_id} OR system_id = {perimeter_id}) AND is_buy_order = 0 GROUP BY type_id) AS sell
-                    ON buy.type_id = sell.type_id 
-                    GROUP BY buy.type_id;""")
-    forge_price_data = cur.fetchall()
-    forge_price = {}
-    for line in forge_price_data:
-        type_id, buy_price, sell_price = line
-        forge_price[type_id] = {"buy_price":buy_price,
-                                "sell_price":sell_price}
-    conn.close()
-
-    # Fetch periphery volume
-    conn = sqlite3.connect(cwd+f"/market/history/{periphery_region_id}.db")
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
-    tables = [i[0] for i in cur.fetchall()]
-    latest = tables[0]
-    cur.execute(f"""SELECT
-                        buy_data.type_id,
-                        buy_data.buy,
-                        sell_data.sell
-                    FROM (
-                            (SELECT 
-                                type_id, 
-                                SUM(eff_vol)/{volume_day_history} as buy
-                            FROM (
-                                SELECT
-                                    type_id, lowest, average, highest, volume,
-                                    ((average-lowest) / average) * ({latest}.volume / 2) AS eff_vol
-                                FROM {latest} 
-                                WHERE strftime('%s', 'now') - date < 60*60*24*{volume_day_history}
-                            )
-                            GROUP BY type_id) AS buy_data
-                        JOIN
-                            (SELECT 
-                                type_id, 
-                                SUM(eff_vol)/{volume_day_history} as sell
-                            FROM (
-                                SELECT
-                                    type_id, lowest, average, highest, volume,
-                                    ((highest-average) / average) * ({latest}.volume / 2) AS eff_vol
-                                FROM {latest} 
-                                WHERE strftime('%s', 'now') - date < 60*60*24*{volume_day_history}
-                            )
-                            GROUP BY type_id) AS sell_data
-                        ON buy_data.type_id = sell_data.type_id
-                    )
-                    """)
-    periphery_volume_data = cur.fetchall()
-    periphery_volume = {}
-    for line in periphery_volume_data:
-        type_id, buy_volume, sell_volume = line
-        periphery_volume[type_id] = {"buy_vol":buy_volume,
-                                  "sell_vol":sell_volume}
-    conn.close()
-
-    # Fetch Forge volume
-    conn = sqlite3.connect(cwd+f"/market/history/{forge_id}.db")
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
-    tables = [i[0] for i in cur.fetchall()]
-    latest = tables[0]
-    cur.execute(f"""SELECT
-                        buy_data.type_id,
-                        buy_data.buy,
-                        sell_data.sell
-                    FROM (
-                            (SELECT 
-                                type_id, 
-                                SUM(eff_vol)/{volume_day_history} as buy
-                            FROM (
-                                SELECT
-                                    type_id, lowest, average, highest, volume,
-                                    ((average-lowest) / average) * ({latest}.volume / 2) AS eff_vol
-                                FROM {latest} 
-                                WHERE strftime('%s', 'now') - date < 60*60*24*{volume_day_history}
-                            )
-                            GROUP BY type_id) AS buy_data
-                        JOIN
-                            (SELECT 
-                                type_id, 
-                                SUM(eff_vol)/{volume_day_history} as sell
-                            FROM (
-                                SELECT
-                                    type_id, lowest, average, highest, volume,
-                                    ((highest-average) / average) * ({latest}.volume / 2) AS eff_vol
-                                FROM {latest} 
-                                WHERE strftime('%s', 'now') - date < 60*60*24*{volume_day_history}
-                            )
-                            GROUP BY type_id) AS sell_data
-                        ON buy_data.type_id = sell_data.type_id
-                    )
-                    """)
-    forge_volume_data = cur.fetchall()
-    forge_volume = {}
-    for line in forge_volume_data:
-        type_id, buy_volume, sell_volume = line
-        forge_volume[type_id] = {"buy_vol":buy_volume,
-                                  "sell_vol":sell_volume}
-    conn.close()
+    # Volume
+    periphery_volume = data_handling.get_region_volumes(periphery_region_id)
+    forge_volume = data_handling.get_region_volumes(forge_id)
 
     # Find arbitrage using the periphery region
     per_cube_cost = cost_of_dst / 50_000
@@ -180,17 +51,17 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff
             continue # Skip unwanted market groups
 
         # Find it
-        if periphery_price[type_id]["sell_price"] > forge_price[type_id]["buy_price"] * tax_buffer: # Eligible for export
+        if periphery_price[type_id]["sell"] > forge_price[type_id]["sell"] * tax_buffer: # Eligible for export, buy from Jita sell orders
             effective_volume = min(periphery_volume[type_id]["sell_vol"], forge_volume[type_id]["buy_vol"])
-            profit = (periphery_price[type_id]["sell_price"] - (forge_price[type_id]["buy_price"] * tax_buffer)) * effective_volume
+            profit = (periphery_price[type_id]["sell"] - (forge_price[type_id]["sell"] * tax_buffer)) * effective_volume
             profit_per_cube = (profit / size[type_id]) - per_cube_cost
             exports[type_id] = {"profit":profit,
                                 "profit_per_cube":profit_per_cube,
                                 "trade_volume": effective_volume}
 
-        elif forge_price[type_id]["sell_price"] > periphery_price[type_id]["buy_price"] * tax_buffer: # Eligible for import
+        elif forge_price[type_id]["sell"] > periphery_price[type_id]["buy"] * tax_buffer: # Eligible for import, buy with long-term buy orders from region
             effective_volume = min(forge_volume[type_id]["sell_vol"], periphery_volume[type_id]["buy_vol"])
-            profit = (forge_price[type_id]["sell_price"] - (periphery_price[type_id]["buy_price"] * tax_buffer)) * effective_volume
+            profit = (forge_price[type_id]["sell"] - (periphery_price[type_id]["buy"] * tax_buffer)) * effective_volume
             profit_per_cube = (profit / size[type_id]) - per_cube_cost
             imports[type_id] = {"profit":profit,
                                 "profit_per_cube":profit_per_cube,

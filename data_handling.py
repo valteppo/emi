@@ -457,3 +457,109 @@ def typeID_groupID_translator():
         translate_typeID_groupID[type_id] = group_id
     conn.close()
     return translate_typeID_groupID
+
+def get_region_prices(region_id):
+    """
+    Returns a dictionary that has regional sell and buy prices for items.
+    """
+    cwd = os.getcwd()
+    conn = sqlite3.connect(cwd+f"/market/orders/{region_id}.db")
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
+    tables = [i[0] for i in cur.fetchall()]
+    latest = tables[0]
+    if len(latest) == 0:
+        return {}
+    
+    cmd = f"""SELECT buy.type_id as type_id, buy.buy_price as buy_price, sell.sell_price as sell_price FROM 
+                (SELECT type_id, MAX(price) AS buy_price FROM {latest} WHERE is_buy_order = 1 GROUP BY type_id) AS buy
+            JOIN 
+                (SELECT type_id, MIN(price) AS sell_price FROM {latest} WHERE is_buy_order = 0 GROUP BY type_id) AS sell
+            ON buy.type_id = sell.type_id 
+            GROUP BY buy.type_id;"""
+    cur.execute(cmd)
+    data = cur.fetchall()
+    conn.close()
+
+    results = {}
+    for line in data:
+        type_id, buy_price, sell_price = line
+        results[type_id] = {"buy":buy_price,
+                            "sell":sell_price}
+    return results
+
+def get_region_main_hubs(region_id):
+    """
+    Returns an ordered list of systems with the most player orders.
+    """
+    cwd = os.getcwd()
+    conn = sqlite3.connect(cwd+f"/market/orders/{region_id}.db")
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
+    tables = [i[0] for i in cur.fetchall()]
+    latest = tables[0]
+    if len(latest) == 0:
+        return []
+    cmd =   f"""SELECT system_id FROM (
+                        SELECT 
+                            system_id, 
+                            COUNT(order_id) as order_count 
+                        FROM {latest}
+                        WHERE duration < 91
+                        GROUP BY system_id 
+                        ORDER BY order_count DESC
+                        )"""
+    cur.execute(cmd)
+    res = [i[0] for i in cur.fetchall()]
+    conn.close()
+    return res
+
+def get_region_volumes(region_id, volume_day_history=15):
+    """
+    Fetches regional buy and sell volumes.
+    """
+    cwd = os.getcwd()
+    conn = sqlite3.connect(cwd+f"/market/history/{region_id}.db")
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
+    tables = [i[0] for i in cur.fetchall()]
+    latest = tables[0]
+    cur.execute(f"""SELECT
+                        buy_data.type_id,
+                        buy_data.buy,
+                        sell_data.sell
+                    FROM (
+                            (SELECT 
+                                type_id, 
+                                SUM(eff_vol)/{volume_day_history} as buy
+                            FROM (
+                                SELECT
+                                    type_id, lowest, average, highest, volume,
+                                    ((average-lowest) / average) * ({latest}.volume / 2) AS eff_vol
+                                FROM {latest} 
+                                WHERE strftime('%s', 'now') - date < 60*60*24*{volume_day_history}
+                            )
+                            GROUP BY type_id) AS buy_data
+                        JOIN
+                            (SELECT 
+                                type_id, 
+                                SUM(eff_vol)/{volume_day_history} as sell
+                            FROM (
+                                SELECT
+                                    type_id, lowest, average, highest, volume,
+                                    ((highest-average) / average) * ({latest}.volume / 2) AS eff_vol
+                                FROM {latest} 
+                                WHERE strftime('%s', 'now') - date < 60*60*24*{volume_day_history}
+                            )
+                            GROUP BY type_id) AS sell_data
+                        ON buy_data.type_id = sell_data.type_id
+                    )
+                    """)
+    volume_data = cur.fetchall()
+    volume = {}
+    for line in volume_data:
+        type_id, buy_volume, sell_volume = line
+        volume[type_id] =   {"buy_vol":buy_volume,
+                            "sell_vol":sell_volume}
+    conn.close()
+    return volume

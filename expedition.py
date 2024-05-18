@@ -95,7 +95,7 @@ def process_unpacked_killmail_jsons():
         if tokens[-1] == "json":
             os.remove(cwd+f"/killmails/{file}")
 
-def summarize_regions(minimum_volume = 10):
+def summarize_regions(minimum_volume = 0.2):
     """
     Goes through the collected killdata and saves a summary.
     """
@@ -138,20 +138,8 @@ def summarize_regions(minimum_volume = 10):
         summaries[region] = region_summary
     conn.close()
 
-    # Get sell prices from jita
-    conn = sqlite3.connect(cwd+f"/market/orders/10000002.db")
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name DESC")
-    tables = [i[0] for i in cur.fetchall()]
-    latest = tables[0]
-    cur.execute(f"SELECT type_id, MIN(price) AS sell_price FROM {latest} WHERE (system_id = 30000142 OR system_id = 30000144) AND is_buy_order = 0 GROUP BY type_id")
-    price_data = cur.fetchall()
-    conn.close()
-
-    typeID_sellPrice = {}
-    for line in price_data:
-        type_id, sell_price  = line
-        typeID_sellPrice[type_id] = sell_price
+    # Get prices
+    jita_prices = data_handling.get_region_prices(10000002)
     
     # Save results to db for queries
     conn = sqlite3.connect(cwd+f"/data/killmails.db")
@@ -162,23 +150,33 @@ def summarize_regions(minimum_volume = 10):
     for region in summaries:
         if region not in k_space_regions:
             continue
+        
+        # Region prices & hubs
+        region_prices = data_handling.get_region_prices(region)
+        region_hubs = data_handling.get_region_main_hubs(region)
+        if len(region_hubs) < 2:
+            continue
 
         for type_id in summaries[region]:
-            if type_id in typeID_sellPrice:
+            if type_id in jita_prices and type_id in region_prices:
+                # Check if it's worth buying directly from jita sell orders and ship to target region
+                sell_price_difference = region_prices[type_id]["sell"] - jita_prices[type_id]["sell"] 
                 cur.execute("INSERT INTO summary (region_id, type_id, volume, total_value) \
-                            VALUES (?, ?, ?, ?)", (region, type_id, summaries[region][type_id] / day, ((summaries[region][type_id] / day) * typeID_sellPrice[type_id])))
+                            VALUES (?, ?, ?, ?)", (region, type_id, summaries[region][type_id] / day, ((summaries[region][type_id] / day) * sell_price_difference)))
         conn.commit()
     
         # Query to form output
-        cur.execute(f"SELECT type_id, volume, total_value FROM summary WHERE region_id = {region} AND volume > {minimum_volume} ORDER BY total_value DESC")
+        cur.execute(f"SELECT type_id, volume, total_value FROM summary WHERE region_id = {region} AND volume > {minimum_volume} AND total_value > 0 ORDER BY total_value DESC")
         region_summary_data = cur.fetchall()
+        if len(region_summary_data) == 0:
+            continue
 
         quickbar = ""
         count_len = len(str(len(region_summary_data)))
         count = 0
         current_count_len = len(str(count))
         zerobuffer = "".join("0"* ((count_len - current_count_len)+1))
-        quickbar += f"+ {zerobuffer} This is EXPEDITION list. Buy in Forge, ship towards {location_translator[region]}.\n"
+        quickbar += f"+ {zerobuffer} This is EXPEDITION list. Buy from sell-orders in Jita, ship towards {location_translator[region_hubs[0]]}, {location_translator[region_hubs[1]]}.\n"
         count +=1
         for line in region_summary_data:
             type_id, volume, total_value = line
@@ -245,4 +243,4 @@ def add_n_days(n=1):
         process_unpacked_killmail_jsons()
     summarize_regions()
 
-add_n_days(1)
+summarize_regions()
