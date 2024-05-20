@@ -163,9 +163,13 @@ def make_ie_readable():
         cur.execute(f"SELECT * FROM courier WHERE region = {region} AND profit > 500000 AND is_export = 0 ORDER BY profit DESC")
         data = cur.fetchall()
 
+        count = 0
         quickbar = ""
         count_len = len(str(len(data)))
-        count = 1
+        current_count_len = len(str(count))
+        zerobuffer = "".join("0"* ((count_len - current_count_len)+1))
+        quickbar += f"+ {zerobuffer} {translate_location[region]} IMPORT. Buy in {translate_location[main_hub]}, long buy orders, ship to Jita.\n"
+        count += 1
         for line in data:
             is_export, this_region, type_id, name, profit, profit_per_cube, trade_volume = line
             current_count_len = len(str(count))

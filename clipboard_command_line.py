@@ -90,10 +90,10 @@ class Clipboard_command:
             return data
         
     def redownload_raspberry_data(self):
-        pyperclip.copy("Downloading market and trade data ...")
+        pyperclip.copy("Downloading ... please do not exit script until clipboard reads 'Done.' This takes a couple moments.")
         pi_scp.get_orders_volumes()
         pi_scp.get_trades()
-        pyperclip.copy("Downloading market and trade data ... Done.")
+        pyperclip.copy("Done.")
 
     def immediate(self, prompt):
         """
@@ -169,12 +169,15 @@ class Clipboard_command:
                             volume, cost = self.courier_volume_and_collateral(self.current_clipboard.strip().split("\n"))
                             self.clipboard_memory.append(f"{volume:,}\t{cost:,}")
                             pyperclip.copy(f"{volume:,}\t{cost:,}")
-                            self.command_prompt = "cr sum"
                         except:
                             pass 
 
             case "sys": 
                 match commands[1]:
+                    case "quit":
+                        exit()
+                    case "exit":
+                        exit()
                     case "re": # Refresh data from raspberry pi 
                         self.redownload_raspberry_data()
                     case "clr": # Clears memory
