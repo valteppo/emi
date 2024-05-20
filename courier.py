@@ -5,10 +5,9 @@ import os
 import sqlite3
 import data_handling
  
-def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff_vol=0.5, tax_buffer=1.07):
+def regional_imports_exports(periphery_region_id, volume_day_history=15, min_exp_vol=2, min_imp_vol=0.5, tax_buffer=1.07):
     """
     Major tradehub in another region <--> Jita
-    Minimum effective volume is not active.
     """
     forge_id = 10000002
     jita_id = 30000142
@@ -61,20 +60,22 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_eff
 
         # Find it
         if periphery_price[type_id]["sell"] > forge_price[type_id]["sell"] * tax_buffer: # Eligible for export, buy from Jita sell orders
-            effective_volume = min(periphery_volume[type_id]["sell_vol"], forge_volume[type_id]["buy_vol"])
-            profit = (periphery_price[type_id]["sell"] - (forge_price[type_id]["sell"] * tax_buffer)) * effective_volume
-            profit_per_cube = (profit / size[type_id]) - per_cube_cost
-            exports[type_id] = {"profit":profit,
-                                "profit_per_cube":profit_per_cube,
-                                "trade_volume": effective_volume}
+            effective_volume = periphery_volume[type_id]["sell_vol"] + periphery_volume[type_id]["buy_vol"] * 0.9 # Assume in periphery that items are sold 90% from sell orders
+            if effective_volume > min_exp_vol:
+                profit = (periphery_price[type_id]["sell"] - (forge_price[type_id]["sell"] * tax_buffer)) * effective_volume
+                profit_per_cube = (profit / size[type_id]) - per_cube_cost
+                exports[type_id] = {"profit":profit,
+                                    "profit_per_cube":profit_per_cube,
+                                    "trade_volume": effective_volume}
 
         elif forge_price[type_id]["sell"] > periphery_price[type_id]["buy"] * tax_buffer: # Eligible for import, buy with long-term buy orders from region
             effective_volume = min(forge_volume[type_id]["sell_vol"], periphery_volume[type_id]["buy_vol"])
-            profit = (forge_price[type_id]["sell"] - (periphery_price[type_id]["buy"] * tax_buffer)) * effective_volume
-            profit_per_cube = (profit / size[type_id]) - per_cube_cost
-            imports[type_id] = {"profit":profit,
-                                "profit_per_cube":profit_per_cube,
-                                "trade_volume": effective_volume}
+            if effective_volume > min_imp_vol:
+                profit = (forge_price[type_id]["sell"] - (periphery_price[type_id]["buy"] * tax_buffer)) * effective_volume
+                profit_per_cube = (profit / size[type_id]) - per_cube_cost
+                imports[type_id] = {"profit":profit,
+                                    "profit_per_cube":profit_per_cube,
+                                    "trade_volume": effective_volume}
 
         else:
             continue
@@ -134,13 +135,15 @@ def make_ie_readable():
         main_hub, cost_of_dst = hubs[0]
 
         # Export
-        cur.execute(f"SELECT * FROM courier WHERE region = {region} AND is_export = 1 ORDER BY profit DESC")
+        cur.execute(f"SELECT * FROM courier WHERE region = {region} AND profit > 500000 AND is_export = 1 ORDER BY profit DESC")
         data = cur.fetchall()
 
         quickbar = ""
         count = 1
         for line in data:
             is_export, this_region, type_id, name, profit, profit_per_cube, trade_volume = line
+            if "Standup" in name:
+                continue
             if count > 100:
                 break
             quickbar += f"{name}\t{max(int(trade_volume),1)}\n"
@@ -150,13 +153,15 @@ def make_ie_readable():
             file.write(quickbar)
 
         # Import
-        cur.execute(f"SELECT * FROM courier WHERE region = {region} AND is_export = 0 ORDER BY profit DESC")
+        cur.execute(f"SELECT * FROM courier WHERE region = {region} AND profit > 500000 AND is_export = 0 ORDER BY profit DESC")
         data = cur.fetchall()
 
         quickbar = ""
         count = 1
         for line in data:
             is_export, this_region, type_id, name, profit, profit_per_cube, trade_volume = line
+            if "Standup" in name:
+                continue
             if count > 100:
                 break
             quickbar += f"{name}\t{max(int(trade_volume),1)}\n"
@@ -172,13 +177,20 @@ def make_exports_imports():
     cwd = os.getcwd()
     regions = data_handling.get_k_space_regions()
 
-    # Clean up
+    # Clean up of database
     conn = sqlite3.connect(cwd+f"/output/courier/courier.db")
     cur = conn.cursor()
     cur.execute(f"DROP TABLE IF EXISTS courier")
     cur.execute(f"DROP TABLE IF EXISTS hubs")
     cur.execute("VACUUM")    
     conn.close()
+
+    # Clean up of txt files
+    files = os.listdir(cwd+f"/output/courier/")
+    for file in files:        
+        tokens = file.split(".")
+        if tokens[-1] == "txt":
+            os.remove(cwd+f"/output/courier/{file}")
 
     for region in regions:
         regional_imports_exports(region) # Calculations

@@ -602,3 +602,8 @@ def get_route(origin_system_id, destination_system_id, safest=True):
         conn.close()
         return [int(i) for i in result]
 
+def export_eligible():
+    """
+    Manually curated list of export items.
+    """
+    pass
