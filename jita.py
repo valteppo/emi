@@ -90,7 +90,10 @@ def jita_esi_trader(volume_day_history=15, min_eff_vol=10, tax_buffer=1.07):
     
     # combine
     cmd = f"""
-    SELECT type_id, buy_price, sell_price, eff_vol,
+    SELECT  type_id, 
+            buy_price, 
+            sell_price, 
+            eff_vol,
             (sell_price - (buy_price * {tax_buffer})) * eff_vol AS profit
     FROM
         (SELECT * FROM
