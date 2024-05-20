@@ -39,7 +39,7 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_exp
     route_lenght_primary = len(route_systems_primary)-1
     
     # Cost of dst
-    cost_of_dst = 6_000_000 + (route_lenght_primary * 473_000)
+    cost_of_dst = 6_000_000 + (route_lenght_primary * 613_000)
     
     # Stack size max, only take piles that are worth transporting as piles smaller than
     stack_cubic_vol_max = 4000

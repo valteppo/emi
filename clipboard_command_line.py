@@ -146,7 +146,6 @@ class Clipboard_command:
         """
         # Get commands
         commands = self.command_prompt.split(" ")
-        print(commands)
         match commands[0]: 
             case "tr":
                 match commands[1]:
@@ -180,7 +179,6 @@ class Clipboard_command:
                         self.command_prompt = ""
                         pyperclip.copy("")
 
-      
 
 ccmd = Clipboard_command()
 while True:
