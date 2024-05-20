@@ -146,13 +146,11 @@ def make_ie_readable():
         # Export
         cur.execute(f"SELECT * FROM courier WHERE region = {region} AND profit > 500000 AND is_export = 1 ORDER BY profit DESC")
         data = cur.fetchall()
-
+        
         quickbar = ""
         count = 1
         for line in data:
             is_export, this_region, type_id, name, profit, profit_per_cube, trade_volume = line
-            if "Standup" in name:
-                continue
             if count > 100:
                 break
             quickbar += f"{name}\t{max(int(trade_volume),1)}\n"
@@ -166,15 +164,16 @@ def make_ie_readable():
         data = cur.fetchall()
 
         quickbar = ""
+        count_len = len(str(len(data)))
         count = 1
         for line in data:
             is_export, this_region, type_id, name, profit, profit_per_cube, trade_volume = line
-            if "Standup" in name:
-                continue
+            current_count_len = len(str(count))
+            zerobuffer = "".join("0"* (count_len - current_count_len))
+            quickbar += f"+ {zerobuffer}{count} {name} [{int(profit):,} ISK]\n- {name} [{trade_volume}]\n"
+            count += 1
             if count > 100:
                 break
-            quickbar += f"{name}\t{max(int(trade_volume),1)}\n"
-            count += 1
 
         with open(cwd+f"/output/courier/IMPORT {translate_location[region]} {translate_location[main_hub]} to Jita.txt", "w") as file:
             file.write(quickbar)

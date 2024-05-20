@@ -40,7 +40,9 @@ class Clipboard_command:
         total_volume = 0
         total_price_est = 0
 
-        if len(formatted_list_input[0].split("\t")) == 8:# Corporation assets window
+        if len(formatted_list_input[0].split("\t")) == 8:
+            # Corporation assets window
+
             for line in formatted_list_input:
                 name, amount, item_group, item_category, size, slot, volume, est_price = line.split("\t")
                 if self.item_translator[name] in self.item_size:
@@ -55,7 +57,9 @@ class Clipboard_command:
                     total_price_est += self.to_number(est_price) 
             return [math.ceil(total_volume), math.ceil(total_price_est*1.15)] 
                 
-        if len(formatted_list_input[0].split("\t")) == 5:# Inventory 
+        if len(formatted_list_input[0].split("\t")) == 5:
+            # Inventory 
+
             for line in formatted_list_input:
                 name, amount, item_category, volume, est_price = line.split("\t")
                 if self.item_translator[name] in self.item_size:
@@ -67,6 +71,7 @@ class Clipboard_command:
                 else:
                     total_price_est += self.to_number(est_price)
             return [math.ceil(total_volume), math.ceil(total_price_est*1.15)]
+        
     
     def jita_station_trading(self):
         with open(cwd+f"/output/station/Jita_station_trade.txt","r") as file:
@@ -91,7 +96,7 @@ class Clipboard_command:
         pi_scp.get_orders_volumes()
         pi_scp.get_trades()
         pyperclip.copy("Downloading market and trade data ... Done.")
-    
+
     def immediate(self, prompt):
         """
         These commands do not require additional clipboard data and are run at once.
