@@ -106,7 +106,9 @@ class Clipboard_command:
             "cr im",
 
             "sys re",
-            "sys clr"
+            "sys clr",
+            "sys exit",
+            "sys quit"
         ]
         for instance in immediate_prompts:
             if prompt in instance:
