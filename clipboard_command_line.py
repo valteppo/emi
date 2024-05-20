@@ -7,7 +7,6 @@ import pyperclip
 import math
 import time
 import os
-import sqlite3
 
 import data_handling
 import pi_scp
@@ -45,12 +44,10 @@ class Clipboard_command:
             for line in formatted_list_input:
                 name, amount, item_group, item_category, size, slot, volume, est_price = line.split("\t")
                 if self.item_translator[name] in self.item_size:
-                    
                     total_volume += self.item_size[self.item_translator[name]] * int(math.ceil(self.to_number(amount)))
                 else:
                     total_volume += self.to_number(volume[:-1]) * int(math.ceil(self.to_number(amount))) # -1 cuts out the "3" from tailing "m3"
                 if self.item_translator[name] in self.jita_prices:
-
                     total_price_est += self.jita_prices[self.item_translator[name]]["sell"]* int(math.ceil(self.to_number(amount)))
                 else: 
                     total_price_est += self.to_number(est_price) 
@@ -130,7 +127,6 @@ class Clipboard_command:
                 if self.immediate(self.command_prompt):
                     self.operate()
                     self.command_prompt = ""
-                    self.current_clipboard = "" 
                 self.current_clipboard = ""
             
             if self.command_prompt != "" and self.command_prompt != self.current_clipboard: 
@@ -183,6 +179,7 @@ class Clipboard_command:
                     case "re": # Refresh data from raspberry pi 
                         self.redownload_raspberry_data()
                     case "clr": # Clears memory
+                        self.current_clipboard = ""
                         self.clipboard_memory = [None]
                         self.command_prompt = ""
                         pyperclip.copy("")
