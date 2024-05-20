@@ -42,7 +42,6 @@ class Clipboard_command:
 
         if len(formatted_list_input[0].split("\t")) == 8:
             # Corporation assets window
-
             for line in formatted_list_input:
                 name, amount, item_group, item_category, size, slot, volume, est_price = line.split("\t")
                 if self.item_translator[name] in self.item_size:
@@ -59,7 +58,6 @@ class Clipboard_command:
                 
         if len(formatted_list_input[0].split("\t")) == 5:
             # Inventory 
-
             for line in formatted_list_input:
                 name, amount, item_category, volume, est_price = line.split("\t")
                 if self.item_translator[name] in self.item_size:
@@ -72,7 +70,7 @@ class Clipboard_command:
                     total_price_est += self.to_number(est_price)
             return [math.ceil(total_volume), math.ceil(total_price_est*1.15)]
         
-    
+   
     def jita_station_trading(self):
         with open(cwd+f"/output/station/Jita_station_trade.txt","r") as file:
             data = file.read()
@@ -144,7 +142,6 @@ class Clipboard_command:
         """
         Evaluates what to do with clipboard. 
         """
-        # Get commands
         commands = self.command_prompt.split(" ")
         match commands[0]: 
             case "tr":
@@ -156,11 +153,17 @@ class Clipboard_command:
             case "cr":
                 match commands[1]:
                     case "ex": # Export to region
-                        data = self.search_location_courier_buy_list(destination = commands[2], export_or_import="EXPORT")
-                        pyperclip.copy(data)
+                        try:
+                            data = self.search_location_courier_buy_list(destination = commands[2], export_or_import="EXPORT")
+                            pyperclip.copy(data)
+                        except:
+                            pyperclip.copy("None")
                     case "im": # Import from region
-                        data = self.search_location_courier_buy_list(destination = commands[2], export_or_import="IMPORT")
-                        pyperclip.copy(data) 
+                        try:
+                            data = self.search_location_courier_buy_list(destination = commands[2], export_or_import="IMPORT")
+                            pyperclip.copy(data)
+                        except:
+                            pyperclip.copy("None")
                     case "sum": # Sum selection volumes and prices
                         try:
                             volume, cost = self.courier_volume_and_collateral(self.current_clipboard.strip().split("\n"))
