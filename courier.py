@@ -3,6 +3,8 @@ Find items worth courier contracting to and from. Destination/origin Jita.
 """
 import os
 import sqlite3
+import math
+
 import data_handling
  
 def regional_imports_exports(periphery_region_id, volume_day_history=15, min_exp_vol=2, min_imp_vol=0.5, tax_buffer=1.07):
@@ -38,6 +40,9 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_exp
     
     # Cost of dst
     cost_of_dst = 6_000_000 + (route_lenght_primary * 473_000)
+    
+    # Stack size max, only take piles that are worth transporting as piles smaller than
+    stack_cubic_vol_max = 4000
 
     # Price
     periphery_price = data_handling.get_region_prices(periphery_region_id)
@@ -60,7 +65,9 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_exp
 
         # Find it
         if periphery_price[type_id]["sell"] > forge_price[type_id]["sell"] * tax_buffer: # Eligible for export, buy from Jita sell orders
-            effective_volume = periphery_volume[type_id]["sell_vol"] + periphery_volume[type_id]["buy_vol"] * 0.9 # Assume in periphery that items are sold 90% from sell orders
+            effective_volume_market = periphery_volume[type_id]["sell_vol"] + periphery_volume[type_id]["buy_vol"] * 0.9 # Assume in periphery that items are sold 90% from sell orders
+            volume_throttle = math.ceil(stack_cubic_vol_max / size[type_id])
+            effective_volume = min(effective_volume_market, volume_throttle)
             if effective_volume > min_exp_vol:
                 profit = (periphery_price[type_id]["sell"] - (forge_price[type_id]["sell"] * tax_buffer)) * effective_volume
                 profit_per_cube = (profit / size[type_id]) - per_cube_cost
@@ -69,7 +76,9 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_exp
                                     "trade_volume": effective_volume}
 
         elif forge_price[type_id]["sell"] > periphery_price[type_id]["buy"] * tax_buffer: # Eligible for import, buy with long-term buy orders from region
-            effective_volume = min(forge_volume[type_id]["sell_vol"], periphery_volume[type_id]["buy_vol"])
+            effective_volume_market = min(forge_volume[type_id]["sell_vol"], periphery_volume[type_id]["buy_vol"])
+            volume_throttle = math.ceil(stack_cubic_vol_max / size[type_id])
+            effective_volume = min(effective_volume_market, volume_throttle)
             if effective_volume > min_imp_vol:
                 profit = (forge_price[type_id]["sell"] - (periphery_price[type_id]["buy"] * tax_buffer)) * effective_volume
                 profit_per_cube = (profit / size[type_id]) - per_cube_cost

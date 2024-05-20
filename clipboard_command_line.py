@@ -13,18 +13,18 @@ import data_handling
 import pi_scp
 
 cwd = os.getcwd()
+COMMAND_FAMILIES = ["tr", "cr", "sys"]
 
 class Clipboard_command:
     def __init__(self) -> None:
         self.clipboard_memory = [None]
         self.current_clipboard = ""
         self.command_prompt = ""
-        self.command_prompt_history = ["start"]
         self.jita_prices = data_handling.get_region_prices(10000002)
         self.item_translator = data_handling.translator_items()
         self.item_size = data_handling.get_size()
 
-    def to_number(string_input)-> float:
+    def to_number(self, string_input)-> float:
         num_str = ""
         for char in string_input:
             if char.isdigit():
@@ -42,138 +42,140 @@ class Clipboard_command:
 
         if len(formatted_list_input[0].split("\t")) == 8:# Corporation assets window
             for line in formatted_list_input:
-                print(line)
                 name, amount, item_group, item_category, size, slot, volume, est_price = line.split("\t")
-                total_volume += Clipboard_command.to_number(volume[:-1]) # -1 cuts out the "3" from tailing "m3"
+                if self.item_translator[name] in self.item_size:
+                    
+                    total_volume += self.item_size[self.item_translator[name]] * int(math.ceil(self.to_number(amount)))
+                else:
+                    total_volume += self.to_number(volume[:-1]) * int(math.ceil(self.to_number(amount))) # -1 cuts out the "3" from tailing "m3"
                 if self.item_translator[name] in self.jita_prices:
-                    total_price_est += self.jita_prices[self.item_translator[name]]["sell"]
+
+                    total_price_est += self.jita_prices[self.item_translator[name]]["sell"]* int(math.ceil(self.to_number(amount)))
                 else: 
-                    total_price_est += Clipboard_command.to_number(est_price)
-            return [math.ceil(total_volume), math.ceil(total_price_est*1.1)]
+                    total_price_est += self.to_number(est_price) 
+            return [math.ceil(total_volume), math.ceil(total_price_est*1.15)] 
                 
-        if len(formatted_list_input[0].split("\t")) == 5:# Inventory
+        if len(formatted_list_input[0].split("\t")) == 5:# Inventory 
             for line in formatted_list_input:
                 name, amount, item_category, volume, est_price = line.split("\t")
-                total_volume += Clipboard_command.to_number(volume[:-1]) # -1 cuts out the "3" from tailing "m3"
-                if self.item_translator[name] in self.jita_prices:
-                    total_price_est += self.jita_prices[self.item_translator[name]]["sell"]
+                if self.item_translator[name] in self.item_size:
+                    total_volume += self.item_size[self.item_translator[name]] * int(math.ceil(self.to_number(amount)))
                 else:
-                    total_price_est += Clipboard_command.to_number(est_price)
-            return [math.ceil(total_volume), math.ceil(total_price_est*1.1)]
+                    total_volume += self.to_number(volume[:-1]) * int(math.ceil(self.to_number(amount))) # -1 cuts out the "3" from tailing "m3"
+                if self.item_translator[name] in self.jita_prices:
+                    total_price_est += self.jita_prices[self.item_translator[name]]["sell"] * int(math.ceil(self.to_number(amount)))
+                else:
+                    total_price_est += self.to_number(est_price)
+            return [math.ceil(total_volume), math.ceil(total_price_est*1.15)]
+    
+    def jita_station_trading(self):
+        with open(cwd+f"/output/station/Jita_station_trade.txt","r") as file:
+            data = file.read()
+        return data
+    
+    def search_location_courier_buy_list(self, destination, export_or_import):
+        files = os.listdir(cwd+f"/output/courier/")
+        data = ""
+        for file in files:
+            file_lower = file.lower()
+            if destination.lower() in file_lower and export_or_import.lower() in file_lower:
+                with open(cwd+f"/output/courier/{file}", "r") as target:
+                    data = target.read()
+                break
         
+        if len(data) > 0:
+            return data
+        
+    def redownload_raspberry_data(self):
+        pyperclip.copy("Downloading market and trade data ...")
+        pi_scp.get_orders_volumes()
+        pi_scp.get_trades()
+        pyperclip.copy("Downloading market and trade data ... Done.")
+    
+    def immediate(self, prompt):
+        """
+        These commands do not require additional clipboard data and are run at once.
+        """
+        immediate_prompts = [
+            "tr jita",
+
+            "cr ex",
+            "cr im",
+
+            "sys re",
+            "sys clr"
+        ]
+        for instance in immediate_prompts:
+            if prompt in instance:
+                return True
+        return False
 
     def evaluate_clipboard(self, clipboard_raw):
         if self.clipboard_memory[-1] == clipboard_raw:
-            return # Clipboard unchanged
+            # Clipboard unchanged
+            return 
+        
         else: 
             self.current_clipboard = clipboard_raw
             self.clipboard_memory.append(self.current_clipboard)
-            Clipboard_command.operate(self)
-    
-    def operate(self):
-        """
-        Evaluates what to do with clipboard.
-        """
-        command_families = ["tr", "cr", "sys"]
-        tokens = self.current_clipboard.split(" ")
-        if tokens[0] in command_families:
-            self.command_prompt = self.current_clipboard
-        if self.command_prompt == "" or self.command_prompt == self.command_prompt_history[-1]:
-            return
-        
-        # If command is set and new, operate on clipboard
-        command_tokens = self.command_prompt.split(" ")
-        command_tokens = [i.lower() for i in command_tokens]
-        print(command_tokens)
-        match command_tokens[0]:
-            ########################
-            case "cr": # Courier family commands
-                match command_tokens[1]:
-                    case "sum":
-                        # Summarizes volume and prices estimates for items selected from Items hangar or Corporation Deliveries.
-                        try:
-                            volume, price = Clipboard_command.courier_volume_and_collateral(self, formatted_list_input=self.current_clipboard.split("\n"))
-                            pyperclip.copy(f"{volume:,}\t{price:,}")
-                        except:
-                            pass
-                    
-                    case "ex": 
-                        # Select export to a region
-                        try:
-                            destination = command_tokens[2]
-                        except:
-                            pass
-                        
-                        try:
-                            files = os.listdir(cwd+f"/output/courier/")
-                            data = ""
-                            for file in files:
-                                file_lower = file.lower()
-                                if destination in file_lower and "export" in file_lower:
-                                    with open(cwd+f"/output/courier/{file}", "r") as target:
-                                        data = target.read()
-                            
-                            if len(data) > 0:
-                                pyperclip.copy(data)
-                        except:
-                            pass
-                    
-                    case "im":
-                        # Select import from a region
-                        try:
-                            destination = command_tokens[2]
-                        except:
-                            pass
-                        
-                        try:
-                            files = os.listdir(cwd+f"/output/courier/")
-                            data = ""
-                            for file in files:
-                                file_lower = file.lower()
-                                if destination in file_lower and "import" in file_lower:
-                                    with open(cwd+f"/output/courier/{file}", "r") as target:
-                                        data = target.read()
-                            
-                            if len(data) > 0:
-                                pyperclip.copy(data)
-                        except:
-                            pass
-                
+
+            tokens = self.current_clipboard.split(" ")
+            if tokens[0] in COMMAND_FAMILIES and len(tokens) > 1:
+                self.command_prompt = self.current_clipboard
+                if self.immediate(self.command_prompt):
+                    self.operate()
+                    self.command_prompt = ""
+                    self.current_clipboard = "" 
+                self.current_clipboard = ""
             
-            ########################
-            case "tr": # Station trade family commands
-                match command_tokens[1]:
-                    case "jita":
+            if self.command_prompt != "" and self.command_prompt != self.current_clipboard: 
+                # Else if there are commands, execute those commands on clipboard. 
+                self.operate()
+            else: 
+                # No commands, pass 
+                pass 
+    
+    def operate(self): 
+        """
+        Evaluates what to do with clipboard. 
+        """
+        # Get commands
+        commands = self.command_prompt.split(" ")
+        print(commands)
+        match commands[0]: 
+            case "tr":
+                match commands[1]:
+                    case "jita": # Jita station trade
+                        jita_quickbar = self.jita_station_trading()
+                        pyperclip.copy(jita_quickbar)
+            
+            case "cr":
+                match commands[1]:
+                    case "ex": # Export to region
+                        data = self.search_location_courier_buy_list(destination = commands[2], export_or_import="EXPORT")
+                        pyperclip.copy(data)
+                    case "im": # Import from region
+                        data = self.search_location_courier_buy_list(destination = commands[2], export_or_import="IMPORT")
+                        pyperclip.copy(data) 
+                    case "sum": # Sum selection volumes and prices
                         try:
-                            with open(cwd+f"/output/station/Jita_station_trade.txt","r") as file:
-                                data = file.read()
-                            pyperclip.copy(data)
+                            volume, cost = self.courier_volume_and_collateral(self.current_clipboard.strip().split("\n"))
+                            self.clipboard_memory.append(f"{volume:,}\t{cost:,}")
+                            pyperclip.copy(f"{volume:,}\t{cost:,}")
+                            self.command_prompt = "cr sum"
                         except:
-                            pass
+                            pass 
 
-                    case "ig": # Add items to ignore list
-                        try:
-                            typeIDs_to_ignore = []
-                            for item_name in self.current_clipboard.split("\n"):
-                                if item_name in self.item_translator[item_name]:
-                                    typeIDs_to_ignore.append(self.item_translator[item_name])
-                            Clipboard_command.ignore_these_items(item_id_list=typeIDs_to_ignore,
-                                                                 prompt_family=command_tokens[0],
-                                                                 prompt_command=command_tokens[1],
-                                                                 file="jita")
-                        except:
-                            pass
+            case "sys": 
+                match commands[1]:
+                    case "re": # Refresh data from raspberry pi 
+                        self.redownload_raspberry_data()
+                    case "clr": # Clears memory
+                        self.clipboard_memory = [None]
+                        self.command_prompt = ""
+                        pyperclip.copy("")
 
-            ########################
-            case "sys": # Data handling and system prompts
-                match command_tokens[1]:
-                    case "re": # Refresh volumes and orders from raspberry, may take several minutes
-                        pyperclip.copy("Downloading orders and volumes and trades, may take several moments. 'Done' in clipboard when finished.")
-                        pi_scp.get_orders_volumes()
-                        pi_scp.get_trades
-                        pyperclip.copy("Done.")
-        
-        self.command_prompt_history.append(self.command_prompt) # Mark as done            
+      
 
 ccmd = Clipboard_command()
 while True:
