@@ -14,7 +14,7 @@ import pi_scp
 cwd = os.getcwd()
 COMMAND_FAMILIES = ["tr", "cr", "sys"]
 
-class Clipboard_command:
+class Clipboard_shell:
     def __init__(self) -> None:
         self.clipboard_memory = [None]
         self.current_clipboard = ""
@@ -162,7 +162,7 @@ class Clipboard_command:
                             pyperclip.copy(data)
                         except:
                             pyperclip.copy("None")
-                    case "sum": # Sum selection volumes and prices
+                    case "sum": # Sum selection volumes and Jita prices
                         try:
                             volume, cost = self.courier_volume_and_collateral(self.current_clipboard.strip().split("\n"))
                             self.clipboard_memory.append(f"{volume:,}\t{cost:,}")
@@ -185,7 +185,7 @@ class Clipboard_command:
                         pyperclip.copy("")
 
 
-ccmd = Clipboard_command()
+cs = Clipboard_shell()
 while True:
-    ccmd.evaluate_clipboard(pyperclip.paste())
+    cs.evaluate_clipboard(pyperclip.paste())
     time.sleep(0.25)
