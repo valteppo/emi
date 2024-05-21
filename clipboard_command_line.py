@@ -138,7 +138,7 @@ class Clipboard_command:
     
     def operate(self): 
         """
-        Evaluates what to do with clipboard. 
+        Executes command prompt on the clipboard data.
         """
         commands = self.command_prompt.split(" ")
         match commands[0]: 
