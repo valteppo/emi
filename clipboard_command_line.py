@@ -142,13 +142,13 @@ class Clipboard_command:
         """
         commands = self.command_prompt.split(" ")
         match commands[0]: 
-            case "tr":
+            case "tr": # Trade family commands
                 match commands[1]:
                     case "jita": # Jita station trade
                         jita_quickbar = self.jita_station_trading()
                         pyperclip.copy(jita_quickbar)
             
-            case "cr":
+            case "cr": # Courier family commands
                 match commands[1]:
                     case "ex": # Export to region
                         try:
@@ -170,7 +170,7 @@ class Clipboard_command:
                         except:
                             pass 
 
-            case "sys": 
+            case "sys": # System family commands
                 match commands[1]:
                     case "quit":
                         exit()
