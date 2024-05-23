@@ -21,6 +21,7 @@ class Clipboard_shell:
         self.command_prompt = ""
         self.jita_prices = data_handling.get_region_prices(10000002)
         self.item_translator = data_handling.translator_items()
+        self.location_translator = data_handling.translator_location()
         self.item_size = data_handling.get_size()
 
     def to_number(self, string_input)-> float:
@@ -128,6 +129,7 @@ class Clipboard_shell:
                     self.operate()
                     self.command_prompt = ""
                 self.current_clipboard = ""
+
             
             if self.command_prompt != "" and self.command_prompt != self.current_clipboard: 
                 # Else if there are commands, execute those commands on clipboard. 
@@ -162,15 +164,15 @@ class Clipboard_shell:
                             pyperclip.copy(data)
                         except:
                             pyperclip.copy("None")
-                    case "sum": # Sum selection volumes and Jita prices
+                    case "sum": # Sum selection volumes and Jita prices, actuates on next copypaste
                         try:
                             volume, cost = self.courier_volume_and_collateral(self.current_clipboard.strip().split("\n"))
                             self.clipboard_memory.append(f"{volume:,}\t{cost:,}")
                             pyperclip.copy(f"{volume:,}\t{cost:,}")
                         except:
-                            pass 
+                            pass
 
-            case "sys": # System family commands
+            case "sys": # System family commands 
                 match commands[1]:
                     case "quit":
                         exit()

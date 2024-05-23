@@ -10,6 +10,8 @@ import yaml
 import requests
 import json
 
+cwd = os.getcwd()
+
 def maintain_sde()-> None:
     """
     Assures up-to-date SDE. Does nothing if everything up to date.
@@ -601,9 +603,3 @@ def get_route(origin_system_id, destination_system_id, safest=True):
         result = sql_route[0][0].split(",")
         conn.close()
         return [int(i) for i in result]
-
-def export_eligible():
-    """
-    Manually curated list of export items.
-    """
-    pass

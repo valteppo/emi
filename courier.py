@@ -6,6 +6,8 @@ import sqlite3
 import math
 
 import data_handling
+
+cwd = os.getcwd()
  
 def regional_imports_exports(periphery_region_id, volume_day_history=15, min_exp_vol=2, min_imp_vol=0.5, tax_buffer=1.07):
     """
@@ -17,8 +19,6 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_exp
     if periphery_region_id == forge_id:
         return
     
-    cwd = os.getcwd()
-
     # Filters and translators
     size = data_handling.get_size()
     item_translator = data_handling.translator_items()
@@ -52,6 +52,15 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_exp
     periphery_volume = data_handling.get_region_volumes(periphery_region_id)
     forge_volume = data_handling.get_region_volumes(forge_id)
 
+    # Search for existing volume
+    cur.execute("CREATE TABLE IF NOT EXISTS inventory (region_id int, type_id int, volume int)") # Assure
+    cur.execute(f"SELECT type_id, volume FROM inventory WHERE region_id = {periphery_region_id}")
+    existing_vol = cur.fetchall()
+    inventory = {}
+    for line in existing_vol:
+        type_id, volume = line
+        inventory[type_id] = volume
+
     # Find arbitrage using the periphery region
     per_cube_cost = cost_of_dst / 50_000
     exports = {}
@@ -67,7 +76,10 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_exp
         if periphery_price[type_id]["sell"] > forge_price[type_id]["sell"] * tax_buffer: # Eligible for export, buy from Jita sell orders
             effective_volume_market = periphery_volume[type_id]["sell_vol"] + periphery_volume[type_id]["buy_vol"] * 0.9 # Assume in periphery that items are sold 90% from sell orders
             volume_throttle = math.ceil(stack_cubic_vol_max / size[type_id])
-            effective_volume = min(effective_volume_market, volume_throttle)
+            if type_id in inventory:
+                effective_volume = min(effective_volume_market, volume_throttle) - inventory[type_id] # Remove existing inventory from calculations
+            else:
+                effective_volume = min(effective_volume_market, volume_throttle)
             if effective_volume > min_exp_vol:
                 profit = (periphery_price[type_id]["sell"] - (forge_price[type_id]["sell"] * tax_buffer)) * effective_volume
                 profit_per_cube = (profit / size[type_id]) - per_cube_cost
@@ -120,7 +132,6 @@ def make_ie_readable():
     """
     Transforms the data to market quickbar form.
     """
-    cwd = os.getcwd()
     translate_location = data_handling.translator_location()
 
     conn = sqlite3.connect(cwd+f"/output/courier/courier.db")
@@ -186,7 +197,6 @@ def make_exports_imports():
     """
     Use this, calculates imports and exports for all defined regions.
     """
-    cwd = os.getcwd()
     regions = data_handling.get_k_space_regions()
 
     # Clean up of database
