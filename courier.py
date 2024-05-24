@@ -243,11 +243,11 @@ def make_exports_imports():
     write_str += "### Exports\n"
     for order in exp_profits:
         if order > 0:
-            write_str += f"{book[order]}\t{order:,}\n"
+            write_str += f"{book[order]} \t{order:,}\n"
     write_str += "\n\n### Imports\n"
     for order in imp_profits:
         if order > 0:
-            write_str += f"{book[order]}\t{order:,}\n"
+            write_str += f"{book[order]} \t{order:,}\n"
     
     # Write
     with open(cwd+f"/output/courier/index.txt", "w") as file:
