@@ -147,6 +147,8 @@ def make_ie_readable():
         cur.execute(f"SELECT * FROM courier WHERE region = {region} AND profit > 500000 AND is_export = 1 ORDER BY profit DESC")
         data = cur.fetchall()
         
+        export_final_count = 0
+
         quickbar = ""
         count = 1
         for line in data:
@@ -154,6 +156,7 @@ def make_ie_readable():
             if count > 100:
                 break
             quickbar += f"{name}\t{max(int(trade_volume),1)}\n"
+            export_final_count += profit
             count += 1
 
         with open(cwd+f"/output/courier/EXPORT {translate_location[region]} Jita to {translate_location[main_hub]}.txt", "w") as file:
@@ -162,6 +165,8 @@ def make_ie_readable():
         # Import
         cur.execute(f"SELECT * FROM courier WHERE region = {region} AND profit > 500000 AND is_export = 0 ORDER BY profit DESC")
         data = cur.fetchall()
+
+        import_final_count = 0
 
         count = 0
         quickbar = ""
@@ -175,12 +180,16 @@ def make_ie_readable():
             current_count_len = len(str(count))
             zerobuffer = "".join("0"* (count_len - current_count_len))
             quickbar += f"+ {zerobuffer}{count} {name} [{int(profit):,} ISK]\n- {name} [{trade_volume}]\n"
+            import_final_count += profit
             count += 1
             if count > 100:
                 break
 
         with open(cwd+f"/output/courier/IMPORT {translate_location[region]} {translate_location[main_hub]} to Jita.txt", "w") as file:
             file.write(quickbar)
+        
+        with open(cwd+f"/output/courier/index.txt", "a") as file:
+            file.write(f"{translate_location[region]}\t{int(export_final_count)}\t{int(import_final_count)}\n")
 
 def make_exports_imports():
     """
@@ -206,5 +215,43 @@ def make_exports_imports():
     for region in regions:
         regional_imports_exports(region) # Calculations
     make_ie_readable() # Make market quickbar
+
+    # Shuffle the index file a little bit
+    # Read
+    with open(cwd+f"/output/courier/index.txt", "r") as file:
+        data = file.read()
+
+    data_l = data.strip().split("\n")
+
+    exp_profits = []
+    imp_profits = []
+    book = {}
+    for line in data_l:
+        region_str, export_val, import_val = line.split("\t")
+        export_val = int(export_val)
+        import_val = int(import_val)
+        book[import_val] = region_str
+        book[export_val] = region_str
+        exp_profits.append(export_val)
+        imp_profits.append(import_val)
+    
+    # Shuffle
+    exp_profits.sort(reverse=True)
+    imp_profits.sort(reverse=True)
+
+    write_str = ""
+    write_str += "### Exports\n"
+    for order in exp_profits:
+        if order > 0:
+            write_str += f"{book[order]}\t{order:,}\n"
+    write_str += "\n\n### Imports\n"
+    for order in imp_profits:
+        if order > 0:
+            write_str += f"{book[order]}\t{order:,}\n"
+    
+    # Write
+    with open(cwd+f"/output/courier/index.txt", "w") as file:
+        file.write(write_str)
+        
 
 make_exports_imports() # keep here, used in rasp trade generation

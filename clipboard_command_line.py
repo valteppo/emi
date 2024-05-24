@@ -102,6 +102,7 @@ class Clipboard_shell:
 
             "cr ex",
             "cr im",
+            "cr ind",
 
             "sys re",
             "sys clr",
@@ -171,6 +172,12 @@ class Clipboard_shell:
                             pyperclip.copy(f"{volume:,}\t{cost:,}")
                         except:
                             pass
+                    case "ind": # Return the import/export index
+                        try:
+                            with open(cwd+f"/output/courier/index.txt", "r") as file:
+                                pyperclip.copy(file.read())
+                        except:
+                            pass 
 
             case "sys": # System family commands 
                 match commands[1]:
