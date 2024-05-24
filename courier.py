@@ -38,8 +38,9 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_exp
         return
     route_lenght_primary = len(route_systems_primary)-1
     
-    # Cost of dst
-    cost_of_dst = 6_000_000 + (route_lenght_primary * 613_000)
+    # Cost of hauling
+    cost_of_hauling = 6_000_000 + (route_lenght_primary * 613_000)
+    hauler_size = 12_000 # covert
     
     # Stack size max, only take piles that are worth transporting as piles smaller than
     stack_cubic_vol_max = 4000
@@ -52,17 +53,8 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_exp
     periphery_volume = data_handling.get_region_volumes(periphery_region_id)
     forge_volume = data_handling.get_region_volumes(forge_id)
 
-    # Search for existing volume
-    cur.execute("CREATE TABLE IF NOT EXISTS inventory (region_id int, type_id int, volume int)") # Assure
-    cur.execute(f"SELECT type_id, volume FROM inventory WHERE region_id = {periphery_region_id}")
-    existing_vol = cur.fetchall()
-    inventory = {}
-    for line in existing_vol:
-        type_id, volume = line
-        inventory[type_id] = volume
-
     # Find arbitrage using the periphery region
-    per_cube_cost = cost_of_dst / 50_000
+    per_cube_cost = cost_of_hauling / hauler_size
     exports = {}
     imports = {}
     for type_id in periphery_price:
@@ -76,10 +68,7 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_exp
         if periphery_price[type_id]["sell"] > forge_price[type_id]["sell"] * tax_buffer: # Eligible for export, buy from Jita sell orders
             effective_volume_market = periphery_volume[type_id]["sell_vol"] + periphery_volume[type_id]["buy_vol"] * 0.9 # Assume in periphery that items are sold 90% from sell orders
             volume_throttle = math.ceil(stack_cubic_vol_max / size[type_id])
-            if type_id in inventory:
-                effective_volume = min(effective_volume_market, volume_throttle) - inventory[type_id] # Remove existing inventory from calculations
-            else:
-                effective_volume = min(effective_volume_market, volume_throttle)
+            effective_volume = min(effective_volume_market, volume_throttle)
             if effective_volume > min_exp_vol:
                 profit = (periphery_price[type_id]["sell"] - (forge_price[type_id]["sell"] * tax_buffer)) * effective_volume
                 profit_per_cube = (profit / size[type_id]) - per_cube_cost
@@ -124,7 +113,7 @@ def regional_imports_exports(periphery_region_id, volume_day_history=15, min_exp
     cur.execute(f"CREATE TABLE IF NOT EXISTS hubs (region int UNIQUE, primary_hub int, secondary_hub int, hauling_cost float)")
     cur.execute(f"""INSERT INTO hubs (region, primary_hub, secondary_hub, hauling_cost) VALUES (?, ?, ?, ?) 
                     ON CONFLICT (region) DO UPDATE SET primary_hub = ?, secondary_hub = ?, hauling_cost = ? """, 
-                    (periphery_region_id, periphery_primary_hub, periphery_secondary_hub, cost_of_dst, periphery_primary_hub, periphery_secondary_hub, cost_of_dst))
+                    (periphery_region_id, periphery_primary_hub, periphery_secondary_hub, cost_of_hauling, periphery_primary_hub, periphery_secondary_hub, cost_of_hauling))
     conn.commit()
     conn.close()
 
